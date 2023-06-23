@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.marquez</groupId>
-    <artifactId>SocketCommunicationAPI</artifactId>
+    <artifactId>socket-communication-api</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
