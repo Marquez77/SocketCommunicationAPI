@@ -130,5 +130,9 @@ public class UDPEchoServer extends Thread{
         return future;
     }
 
-
+    public boolean close() {
+        if(serverSocket.isClosed()) return false;
+        serverSocket.close();
+        return true;
+    }
 }
