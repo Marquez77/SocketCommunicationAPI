@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class UDPEchoServer extends Thread{
             try {
                 serverSocket.receive(receiveData);
 //                logger.info("Receiving: {}", receiveData.getData());
-                String str = new String(receiveData.getData(), receiveData.getOffset(), receiveData.getLength());
+                String str = new String(receiveData.getData(), receiveData.getOffset(), receiveData.getLength(), StandardCharsets.UTF_8);
                 String[] split = str.split(";", 2);
                 final long timestamp = Long.parseLong(split[0]);
 
@@ -74,7 +75,7 @@ public class UDPEchoServer extends Thread{
                         handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(new InetSocketAddress(address, port), send.clone(), response));
                         logger.info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
 
-                        byte[] responseBuffer = (timestamp + ";" + response.toString()).getBytes();
+                        byte[] responseBuffer = (timestamp + ";" + response.toString()).getBytes(StandardCharsets.UTF_8);
                         DatagramPacket sendData = new DatagramPacket(responseBuffer, responseBuffer.length, address, port);
                         try {
                             serverSocket.send(sendData);
@@ -107,7 +108,7 @@ public class UDPEchoServer extends Thread{
         logger.info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), data);
         final long id = timestamp;
         Executors.newCachedThreadPool().submit(() -> {
-            byte[] buffer = (id + ";" + data).getBytes();
+            byte[] buffer = (id + ";" + data).getBytes(StandardCharsets.UTF_8);
             DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
             try {
                 serverSocket.send(sendData);
