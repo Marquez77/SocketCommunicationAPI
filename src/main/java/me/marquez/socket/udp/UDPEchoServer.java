@@ -86,7 +86,8 @@ public class UDPEchoServer extends Thread{
                     });
                 }
             }catch(IOException e) {
-                e.printStackTrace();
+                if(e.getMessage().contains("socket closed")) logger.info("socket closed");
+                else e.printStackTrace();
             }
         }
         if(!this.isInterrupted()) {
