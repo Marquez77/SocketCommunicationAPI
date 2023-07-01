@@ -7,10 +7,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
-public class Test {
+public class ConcurrencyTest {
 
     private static long a = 0;
 

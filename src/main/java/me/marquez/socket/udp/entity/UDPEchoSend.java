@@ -1,8 +1,7 @@
 package me.marquez.socket.udp.entity;
 
+import com.google.gson.JsonArray;
 import lombok.NonNull;
-
-import java.util.Arrays;
 
 public class UDPEchoSend extends UDPEchoData {
 
@@ -10,8 +9,11 @@ public class UDPEchoSend extends UDPEchoData {
         super(data);
     }
 
-    public UDPEchoSend(@NonNull String string) {
-        this(Arrays.stream(string.split(", ")).map(Object.class::cast).toArray());
+    public static UDPEchoSend of(String json) {
+        JsonArray array = parser.parse(json).getAsJsonArray();
+        UDPEchoSend send = new UDPEchoSend();
+        array.forEach(jsonElement -> send.append(jsonElement.getAsString()));
+        return send;
     }
 
     public UDPEchoSend clone() {

@@ -1,5 +1,7 @@
 package me.marquez.socket.udp.entity;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 import lombok.NonNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -8,6 +10,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class UDPEchoData {
+    protected static final JsonParser parser = new JsonParser();
+    
     protected final List<Object> data;
     private int index;
 
@@ -24,7 +28,9 @@ public class UDPEchoData {
 
     @Override
     public String toString() {
-        return String.join(", ", data.stream().map(Object::toString).collect(Collectors.toList()));
+        JsonArray array = new JsonArray();
+        data.stream().map(Object::toString).forEach(array::add);
+        return array.toString();
     }
 
     public boolean hasNext() {
