@@ -1,5 +1,7 @@
 package me.marquez.socket.udp;
 
+import lombok.Getter;
+import lombok.Setter;
 import me.marquez.socket.udp.entity.UDPEchoResponse;
 import me.marquez.socket.udp.entity.UDPEchoSend;
 import org.slf4j.Logger;
@@ -23,11 +25,24 @@ public class UDPEchoServer extends Thread{
 
     private final int serverPort;
     private final Logger logger;
+
+    @Setter
+    private boolean debug;
+
+    @Getter
     private DatagramSocket serverSocket;
     private final List<UDPMessageHandler> handlers;
 
     private long makeId() {
         return System.currentTimeMillis()*10 + identifier.getAndIncrement();
+    }
+
+    private void info(String s, Object o) {
+        if(debug) logger.info(s, o);
+    }
+
+    private void info(String s, Object... o) {
+        if(debug) logger.info(s, o);
     }
 
     public UDPEchoServer(int serverPort, Logger logger) throws IOException {
@@ -50,7 +65,7 @@ public class UDPEchoServer extends Thread{
 
     @Override
     public void run() {
-        logger.info("Starting udp echo server listening port on {}", serverPort);
+        info("Starting udp echo server listening port on {}", serverPort);
         while (!serverSocket.isClosed() && !this.isInterrupted()) {
             byte[] buffer = new byte[2048];
             final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
@@ -66,20 +81,20 @@ public class UDPEchoServer extends Thread{
 //                logger.info("[{}:{}] timestamp: {}", address.getHostAddress(), port, timestamp);
 
                 if(echoMap.containsKey(id)) { //이곳에서 보낸 데이터일 경우 Future Complete
-                    logger.info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, str);
+                    info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, str);
                     echoMap.computeIfPresent(id,(k, v) -> {
                         v.complete(UDPEchoResponse.of(split[1]));
                         return null;
                     });
 
                 }else { //다른 곳에서 받은 데이터일 경우 데이터 되돌려주기
-                    logger.info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, str);
+                    info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, str);
 
                     Executors.newCachedThreadPool().submit(() -> { //onReceive 메소드 대기 중에도 통신 가능하도록 비동기 실행
                         UDPEchoSend send = UDPEchoSend.of(split[1]); //수신 데이터 만들기
                         UDPEchoResponse response = new UDPEchoResponse(); //반환 데이터 만들기
                         handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(new InetSocketAddress(address, port), send.clone(), response));
-                        logger.info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
+                        info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
 
                         byte[] responseBuffer = (id + ";" + response.toString()).getBytes(StandardCharsets.UTF_8);
                         DatagramPacket sendData = new DatagramPacket(responseBuffer, responseBuffer.length, address, port);
@@ -112,7 +127,7 @@ public class UDPEchoServer extends Thread{
         CompletableFuture<UDPEchoResponse> future = new CompletableFuture<>();
         echoMap.put(id, future);
         InetSocketAddress address = (InetSocketAddress)host;
-        logger.info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), data);
+        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), data);
         final long finalId = id;
         Executors.newCachedThreadPool().submit(() -> {
             byte[] buffer = (finalId + ";" + data).getBytes(StandardCharsets.UTF_8);
