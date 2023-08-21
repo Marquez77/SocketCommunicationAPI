@@ -23,4 +23,10 @@ public class UDPEchoResponse extends UDPEchoData{
         this.data.add(data);
         return this;
     }
+
+    public UDPEchoResponse clone() {
+        var result = new UDPEchoResponse();
+        result.data.addAll(this.data);
+        return result;
+    }
 }

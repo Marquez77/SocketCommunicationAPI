@@ -15,6 +15,10 @@ public class UDPEchoData {
     protected final List<Object> data;
     private int index;
 
+    public Object[] getData() {
+        return data.toArray(Object[]::new);
+    }
+
     protected UDPEchoData(Object... data) {
         this.data = new LinkedList<>();
         this.data.addAll(Arrays.stream(data).collect(Collectors.toList()));
