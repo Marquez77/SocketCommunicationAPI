@@ -67,9 +67,9 @@ public class UDPEchoServer extends Thread{
     public void run() {
         info("Starting udp echo server listening port on {}", serverPort);
         while (!serverSocket.isClosed() && !this.isInterrupted()) {
-            byte[] buffer = new byte[2048];
-            final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
             try {
+                byte[] buffer = new byte[serverSocket.getReceiveBufferSize()];
+                final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
                 serverSocket.receive(receiveData);
 //                logger.info("Receiving: {}", receiveData.getData());
                 String str = new String(receiveData.getData(), receiveData.getOffset(), receiveData.getLength(), StandardCharsets.UTF_8);
