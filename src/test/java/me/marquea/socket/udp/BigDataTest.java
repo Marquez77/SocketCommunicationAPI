@@ -24,7 +24,7 @@ public class BigDataTest {
         for(int i = 0; i < 10000; i++) {
             send.append("aaaaaaaaaaaaaaaaaaaa");
         }
-        System.out.println(send);
+//        System.out.println(send);
         System.out.println(send.toString().length());
         server.sendDataAndReceive(new InetSocketAddress("localhost", 8281), send)
                 .whenComplete((udpEchoResponse, throwable) -> {

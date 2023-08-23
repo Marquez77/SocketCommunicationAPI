@@ -73,6 +73,7 @@ public class UDPEchoServer extends Thread{
             this.currentLength = 0;
             int size = (int)Math.ceil((double)length/65000D);
             this.data = new String[size];
+            Arrays.fill(data, "");
         }
 
         public boolean add(int i, String data) {
@@ -116,16 +117,20 @@ public class UDPEchoServer extends Thread{
 
         //1 + headerLength + 1 + i + 1 + 14 + 1 + data <= 65507
         if(str.startsWith("!")) {
-            String[] split = str.substring(1).split(";", 4);
-            int length = Integer.parseInt(split[0]);
-            int i = Integer.parseInt(split[1]);
-            long id = Long.parseLong(split[2]);
-            String data = split[3];
-            info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, str);
-            BigData bigData = bigDataMap.computeIfAbsent(id, k-> new BigData(length));
-            if (!bigData.add(i, data)) return;
-            bigDataMap.remove(id);
-            str = id + ";" + String.join("", bigData.data);
+            try {
+                String[] split = str.substring(1).split(";", 4);
+                int length = Integer.parseInt(split[0]);
+                int i = Integer.parseInt(split[1]);
+                long id = Long.parseLong(split[2]);
+                String data = split[3];
+                info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, str);
+                BigData bigData = bigDataMap.computeIfAbsent(id, k -> new BigData(length));
+                if (!bigData.add(i, data)) return;
+                bigDataMap.remove(id);
+                str = id + ";" + String.join("", bigData.data);
+            }catch(Exception e) {
+                e.printStackTrace();
+            }
         }
 
         String[] split = str.split(";", 2);
@@ -189,6 +194,11 @@ public class UDPEchoServer extends Thread{
             sendData(header, finalId, bitData, host, future);
             if (endIndex == length) break;
             index += unit;
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
     public CompletableFuture<UDPEchoResponse> sendDataAndReceive(SocketAddress host, final UDPEchoSend data) {
