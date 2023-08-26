@@ -1,5 +1,3 @@
-package me.marquea.socket.udp;
-
 import me.marquez.socket.udp.UDPEchoServer;
 import me.marquez.socket.udp.entity.UDPEchoSend;
 import org.slf4j.LoggerFactory;
