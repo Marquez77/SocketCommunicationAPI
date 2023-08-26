@@ -14,27 +14,31 @@ public class BigDataTest {
         UDPEchoServer server2 = new UDPEchoServer(8281, LoggerFactory.getLogger("server2"));
 //        server2.setDebug(true);
         server2.registerHandler((client, send, response) -> {
-            System.out.println(send.toString().length());
+            System.out.println("receive length: " + send.toString().length());
         });
         server2.start();
 
         UDPEchoSend send = new UDPEchoSend();
-        for(int i = 0; i < 10000; i++) {
+        for(int i = 0; i < 500000; i++) {
             send.append("aaaaaaaaaaaaaaaaaaaa");
         }
-//        System.out.println(send);
-        System.out.println(send.toString().length());
-        server.sendDataAndReceive(new InetSocketAddress("localhost", 8281), send)
-                .whenComplete((udpEchoResponse, throwable) -> {
-                    if(throwable != null) {
-                        throwable.printStackTrace();
-                        return;
-                    }
-                    System.out.println(udpEchoResponse);
-                    System.exit(0);
-        }).exceptionally(throwable -> {
-            throwable.printStackTrace();
-            return null;
-                });
+        for(int i = 0; i < 100; i++) {
+    //        System.out.println(send);
+            System.out.println("length: " + send.toString().length());
+            long start = System.currentTimeMillis();
+            server.sendDataAndReceive(new InetSocketAddress("localhost", 8281), send)
+                    .whenComplete((udpEchoResponse, throwable) -> {
+                        if(throwable != null) {
+                            throwable.printStackTrace();
+                            return;
+                        }
+                        System.out.println("response: " + udpEchoResponse);
+                        System.out.println("time: " + (System.currentTimeMillis()-start));
+            }).exceptionally(throwable -> {
+                throwable.printStackTrace();
+                return null;
+                    }).join();
+        }
+        System.exit(0);
     }
 }
