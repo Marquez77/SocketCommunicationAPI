@@ -14,7 +14,7 @@ public class BigDataTest {
         UDPEchoServer server2 = new UDPEchoServer(8281, LoggerFactory.getLogger("server2"));
 //        server2.setDebug(true);
         server2.registerHandler((client, send, response) -> {
-            System.out.println("receive length: " + send.toString().length());
+//            System.out.println("receive length: " + send.toString().length());
         });
         server2.start();
 
@@ -26,7 +26,7 @@ public class BigDataTest {
     //        System.out.println(send);
             System.out.println("length: " + send.toString().length());
             long start = System.currentTimeMillis();
-            server.sendDataAndReceive(new InetSocketAddress("localhost", 8281), send)
+            server.sendDataAndReceive(new InetSocketAddress("localhost", 8281), send, true)
                     .whenComplete((udpEchoResponse, throwable) -> {
                         if(throwable != null) {
                             throwable.printStackTrace();

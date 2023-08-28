@@ -1,4 +1,4 @@
-package me.marquez.socket.udp;
+package me.marquez.socket.udp.exception;
 
 
 import lombok.Getter;

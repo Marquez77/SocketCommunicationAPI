@@ -4,6 +4,8 @@ import lombok.*;
 import me.marquez.socket.udp.entity.UDPEchoData;
 import me.marquez.socket.udp.entity.UDPEchoResponse;
 import me.marquez.socket.udp.entity.UDPEchoSend;
+import me.marquez.socket.udp.exception.DataLossException;
+import me.marquez.socket.udp.exception.NoEchoDataException;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -72,6 +74,7 @@ public class UDPEchoServer extends Thread{
     private static class SentData {
         final UDPEchoSend data;
         final CompletableFuture<UDPEchoResponse> future;
+        final boolean resend;
     }
 
     private static abstract class BigData {
@@ -174,7 +177,6 @@ public class UDPEchoServer extends Thread{
             bigDataMap.put(id, new BigData(length, waitingThreadPool) {
                 @Override
                 public void timeout() {
-                    System.out.println("timeout");
                     String data = combineBigData(id, this);
                     responseData(id, data, address, port, false);
                 }
@@ -206,9 +208,14 @@ public class UDPEchoServer extends Thread{
                 UDPEchoResponse response = UDPEchoResponse.of(split[1]);
                 int sentLength = sentData.data.toString().length();
                 int receivedLength = response.nextInt();
-                if(receivedLength != sentLength) { // 데이터 길이가 다를 경우
+                if(receivedLength != sentLength) { //보낸 데이터와 받은 데이터 길이가 다를 경우
                     double loss = 1-(double)receivedLength/sentLength;
-                    sentData.future.completeExceptionally(new DataLossException(sentLength, receivedLength, loss));
+                    if(sentData.resend) { //재전송
+                        sendThreadPool.submit(() -> sendData(sentData.data, id, new InetSocketAddress(address, port), sentData.future));
+                        return sentData;
+                    }else {
+                        sentData.future.completeExceptionally(new DataLossException(sentLength, receivedLength, loss));
+                    }
                 }else {
                     sentData.future.complete(response);
                 }
@@ -227,10 +234,12 @@ public class UDPEchoServer extends Thread{
     }
 
     private void responseData(long id, String data, InetAddress address, int port, boolean handlingResponse) {
-        UDPEchoSend send = UDPEchoSend.of(data); //수신 데이터 만들기
         UDPEchoResponse response = new UDPEchoResponse(data.length()); //반환 데이터 만들기
         InetSocketAddress host = new InetSocketAddress(address, port);
-        if(handlingResponse) handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(host, send.clone(), response));
+        if(handlingResponse) {
+            UDPEchoSend send = UDPEchoSend.of(data); //수신 데이터 만들기
+            handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(host, send.clone(), response));
+        }
         info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
         sendData(response, id, host, null);
     }
@@ -295,10 +304,13 @@ public class UDPEchoServer extends Thread{
         return future;
     }
     public CompletableFuture<UDPEchoResponse> sendDataAndReceive(SocketAddress host, final UDPEchoSend data) {
+        return sendDataAndReceive(host, data, false);
+    }
+    public CompletableFuture<UDPEchoResponse> sendDataAndReceive(SocketAddress host, final UDPEchoSend data, boolean resend) {
         long id = makeId();
         while(echoMap.containsKey(id)) id = makeId();
         CompletableFuture<UDPEchoResponse> future = new CompletableFuture<>();
-        echoMap.put(id, new SentData(data, future));
+        echoMap.put(id, new SentData(data, future, resend));
         InetSocketAddress address = (InetSocketAddress)host;
         info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), data);
         final long finalId = id;
@@ -323,6 +335,7 @@ public class UDPEchoServer extends Thread{
         serverSocket.close();
         receiveThreadPool.shutdownNow();
         sendThreadPool.shutdownNow();
+        waitingThreadPool.shutdownNow();
         interrupt();
         return true;
     }

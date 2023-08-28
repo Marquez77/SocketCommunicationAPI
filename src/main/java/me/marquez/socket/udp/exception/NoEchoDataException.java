@@ -1,7 +1,7 @@
-package me.marquez.socket.udp;
+package me.marquez.socket.udp.exception;
 
 public class NoEchoDataException extends Exception{
-    NoEchoDataException() {
+    public NoEchoDataException() {
         super("No echo was returned to the data you sent. So 100% loss data.");
     }
 }
