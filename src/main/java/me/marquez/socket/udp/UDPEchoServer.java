@@ -57,35 +57,53 @@ public class UDPEchoServer extends Thread{
     }
 
     //identifier, response future
-    private final Map<Long, CompletableFuture<UDPEchoResponse>> echoMap = new ConcurrentHashMap<>();
+    private final Map<Long, SentData> echoMap = new ConcurrentHashMap<>();
     private final Map<Long, CompletableFuture<Void>> bigDataBeginMap = new ConcurrentHashMap<>();
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
     private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
     private final ExecutorService sendThreadPool = Executors.newCachedThreadPool();
+    private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
     private static final int MAX_PACKET_SIZE = 65507;
 
-    private static class BigData {
-        ExecutorService threadPool = Executors.newSingleThreadExecutor();
+    @AllArgsConstructor
+    private static class SentData {
+        final UDPEchoSend data;
+        final CompletableFuture<UDPEchoResponse> future;
+    }
+
+    private static abstract class BigData {
+        final ExecutorService threadPool = Executors.newSingleThreadExecutor();
         int targetLength;
         int currentLength;
         String[] data;
+        long timeout;
 
-        public BigData(int length) {
+        public BigData(int length, ExecutorService executors) {
             this.targetLength = length;
             this.currentLength = 0;
-            int size = (int)Math.ceil((double)length/MAX_PACKET_SIZE);
+            int size = (int)Math.ceil((double)length/MAX_PACKET_SIZE)+1;
             this.data = new String[size];
             Arrays.fill(data, "");
+            executors.submit(this::checkReceiving);
         }
 
         public boolean add(int i, String data) {
             this.data[i] = data;
             currentLength += data.length();
+            timeout += System.currentTimeMillis()+1000L;
             return currentLength == targetLength;
         }
+
+        public void checkReceiving() {
+            timeout = System.currentTimeMillis()+1000L;
+            while(System.currentTimeMillis() < timeout);
+            if(currentLength != targetLength) timeout();
+        }
+
+        abstract public void timeout();
     }
 
     @Override
@@ -123,6 +141,10 @@ public class UDPEchoServer extends Thread{
         }
     }
 
+    private String combineBigData(long id, BigData bigData) {
+        return id + ";" + String.join("", bigData.data);
+    }
+
     private void processBitData(InetAddress address, int port, String str) {
         //!index;id;bitData
         String[] split = str.substring(1).split(";", 3);
@@ -136,7 +158,7 @@ public class UDPEchoServer extends Thread{
             bigData.threadPool.submit(() -> { //해당 BigData 의 싱글 쓰레드에서 처리
                 info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, str);
                 if (bigData.add(i, data)) { //데이터를 끝까지 받은 경우
-                    String packet = id + ";" + String.join("", bigData.data);
+                    String packet = combineBigData(id, bigData);
                     processReceivedData(address, port, packet, false); //지금까지 받은 데이터 합쳐서 처리
                     bigDataMap.remove(id, bigData); //맵에서 삭제
                 }
@@ -149,7 +171,14 @@ public class UDPEchoServer extends Thread{
             String[] split = str.substring(2).split(";", 3);
             int length = Integer.parseInt(split[0]);
             long id = Long.parseLong(split[1]);
-            bigDataMap.put(id, new BigData(length));
+            bigDataMap.put(id, new BigData(length, waitingThreadPool) {
+                @Override
+                public void timeout() {
+                    System.out.println("timeout");
+                    String data = combineBigData(id, this);
+                    responseData(id, data, address, port, false);
+                }
+            });
             info("[{}:{}->CURRENT] Received big data begin: {}", address.getHostAddress(), port, str);
             String packet = id + ";";
             receiveThreadPool.submit(() -> processReceivedData(address, port, packet, true));
@@ -173,8 +202,16 @@ public class UDPEchoServer extends Thread{
             });
         }else if(echoMap.containsKey(id)) { //이곳에서 보낸 데이터일 경우 Future Complete
             info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, str);
-            echoMap.computeIfPresent(id,(k, v) -> {
-                v.complete(UDPEchoResponse.of(split[1]));
+            echoMap.computeIfPresent(id,(k, sentData) -> {
+                UDPEchoResponse response = UDPEchoResponse.of(split[1]);
+                int sentLength = sentData.data.toString().length();
+                int receivedLength = response.nextInt();
+                if(receivedLength != sentLength) { // 데이터 길이가 다를 경우
+                    double loss = 1-(double)receivedLength/sentLength;
+                    sentData.future.completeExceptionally(new DataLossException(sentLength, receivedLength, loss));
+                }else {
+                    sentData.future.complete(response);
+                }
                 return null;
             });
 
@@ -185,13 +222,17 @@ public class UDPEchoServer extends Thread{
             }else {
                 info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, str);
             }
-            UDPEchoSend send = UDPEchoSend.of(data); //수신 데이터 만들기
-            UDPEchoResponse response = new UDPEchoResponse(); //반환 데이터 만들기
-            InetSocketAddress host = new InetSocketAddress(address, port);
-            if(!bigDataStart) handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(host, send.clone(), response));
-            info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
-            sendData(response, id, host, null);
+            responseData(id, data, address, port, !bigDataStart);
         }
+    }
+
+    private void responseData(long id, String data, InetAddress address, int port, boolean handlingResponse) {
+        UDPEchoSend send = UDPEchoSend.of(data); //수신 데이터 만들기
+        UDPEchoResponse response = new UDPEchoResponse(data.length()); //반환 데이터 만들기
+        InetSocketAddress host = new InetSocketAddress(address, port);
+        if(handlingResponse) handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(host, send.clone(), response));
+        info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
+        sendData(response, id, host, null);
     }
 
     private void sendData(UDPEchoData data, long id, SocketAddress host, CompletableFuture<?> future) {
@@ -241,7 +282,7 @@ public class UDPEchoServer extends Thread{
             endIndex = Math.min(index + bitSize, length);
             String bitData = serializedData.substring(index, endIndex);
             sendData(header, finalId, bitData, host, future);
-            if(i%2 == 0) Thread.sleep(1);
+//            if(i%2 == 0) Thread.sleep(1);
         }
     }
     private CompletableFuture<Void> sendBigDataBeginAndReceive(String header, long id, SocketAddress host) {
@@ -257,7 +298,7 @@ public class UDPEchoServer extends Thread{
         long id = makeId();
         while(echoMap.containsKey(id)) id = makeId();
         CompletableFuture<UDPEchoResponse> future = new CompletableFuture<>();
-        echoMap.put(id, future);
+        echoMap.put(id, new SentData(data, future));
         InetSocketAddress address = (InetSocketAddress)host;
         info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), data);
         final long finalId = id;

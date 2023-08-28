@@ -35,7 +35,7 @@ public class BigDataTest {
                         System.out.println("response: " + udpEchoResponse);
                         System.out.println("time: " + (System.currentTimeMillis()-start));
             }).exceptionally(throwable -> {
-                throwable.printStackTrace();
+                System.out.println(throwable.getMessage());
                 return null;
                     }).join();
         }
