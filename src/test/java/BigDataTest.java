@@ -6,23 +6,27 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class BigDataTest {
+    private static long min = Long.MAX_VALUE;
+    private static long max = Long.MIN_VALUE;
+    private static long sum = 0;
     public static void main(String[] args) throws IOException {
         UDPEchoServer server = new UDPEchoServer(8280, LoggerFactory.getLogger("server1"));
-//        server.setDebug(true);
+        server.setDebug(true);
         server.start();
 
         UDPEchoServer server2 = new UDPEchoServer(8281, LoggerFactory.getLogger("server2"));
-//        server2.setDebug(true);
+        server2.setDebug(true);
         server2.registerHandler((client, send, response) -> {
 //            System.out.println("receive length: " + send.toString().length());
         });
         server2.start();
 
         UDPEchoSend send = new UDPEchoSend();
-        for(int i = 0; i < 500000; i++) {
+        for(int i = 0; i < 5000000; i++) {
             send.append("aaaaaaaaaaaaaaaaaaaa");
         }
-        for(int i = 0; i < 100; i++) {
+        int count = 100;
+        for(int i = 0; i < count; i++) {
     //        System.out.println(send);
             System.out.println("length: " + send.toString().length());
             long start = System.currentTimeMillis();
@@ -33,12 +37,19 @@ public class BigDataTest {
                             return;
                         }
                         System.out.println("response: " + udpEchoResponse);
-                        System.out.println("time: " + (System.currentTimeMillis()-start));
+                        long time = (System.currentTimeMillis()-start);
+                        System.out.println("time: " + time);
+                        sum += time;
+                        min = Math.min(min, time);
+                        max = Math.max(max, time);
             }).exceptionally(throwable -> {
                 System.out.println(throwable.getMessage());
                 return null;
                     }).join();
         }
+        System.out.println("min: " + min);
+        System.out.println("max: " + max);
+        System.out.println("avg: " + (double)sum/count);
         System.exit(0);
     }
 }
