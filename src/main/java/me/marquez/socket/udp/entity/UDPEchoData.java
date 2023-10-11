@@ -2,6 +2,7 @@ package me.marquez.socket.udp.entity;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
@@ -14,6 +15,7 @@ public class UDPEchoData {
     protected static final JsonParser parser = new JsonParser();
     
     protected final List<Object> data;
+    @Getter
     @Setter
     private int index;
 
