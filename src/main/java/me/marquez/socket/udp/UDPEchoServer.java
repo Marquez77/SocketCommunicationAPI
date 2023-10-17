@@ -27,6 +27,9 @@ public class UDPEchoServer extends Thread{
     @Setter
     private boolean debug;
 
+    @Setter
+    private int debuggingLength = 100;
+
     @Getter
     private DatagramSocket serverSocket;
     private final List<UDPMessageHandler> handlers;
@@ -41,6 +44,10 @@ public class UDPEchoServer extends Thread{
 
     private void info(String s, Object... o) {
         if(debug) logger.info(s, o);
+    }
+
+    private String trim(String str) {
+        return trim(str);
     }
 
     public UDPEchoServer(int serverPort, Logger logger) throws IOException {
@@ -156,10 +163,10 @@ public class UDPEchoServer extends Thread{
         String data = split[2];
         BigData bigData = bigDataMap.getOrDefault(id, null);
         if(bigData == null) { // 시작 패킷이 먼저 오지 않은 경우 무시
-            info("[{}:{}->CURRENT] Received invalid bit data: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+            info("[{}:{}->CURRENT] Received invalid bit data: {}", address.getHostAddress(), port, trim(str));
         }else {
             bigData.threadPool.submit(() -> { //해당 BigData 의 싱글 쓰레드에서 처리
-                info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+                info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, trim(str));
                 if (bigData.add(i, data)) { //데이터를 끝까지 받은 경우
                     String packet = combineBigData(id, bigData);
                     processReceivedData(address, port, packet, false); //지금까지 받은 데이터 합쳐서 처리
@@ -181,7 +188,7 @@ public class UDPEchoServer extends Thread{
                     responseData(id, data, address, port, false);
                 }
             });
-            info("[{}:{}->CURRENT] Received big data begin: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+            info("[{}:{}->CURRENT] Received big data begin: {}", address.getHostAddress(), port, trim(str));
             String packet = id + ";";
             receiveThreadPool.submit(() -> processReceivedData(address, port, packet, true));
         }else if(str.startsWith("!")) { //!index;id;bitData (BigData 조각 패킷)
@@ -202,13 +209,13 @@ public class UDPEchoServer extends Thread{
             receivedLength = Integer.parseInt(split[0]);
         }
         if(bigDataBeginMap.containsKey(id)) { //BigData 시작 패킷일 경우 Future Complete
-            info("[CURRENT->{}:{}->CURRENT] Received echo big data begin: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+            info("[CURRENT->{}:{}->CURRENT] Received echo big data begin: {}", address.getHostAddress(), port, trim(str));
             bigDataBeginMap.computeIfPresent(id, (k, v) -> {
                 v.complete(null);
                 return null;
             });
         }else if(echoMap.containsKey(id)) { //이곳에서 보낸 데이터일 경우 Future Complete
-            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, trim(str));
             final String[] finalSplit = split;
             final int finalReceivedLength = receivedLength;
             echoMap.computeIfPresent(id,(k, sentData) -> {
@@ -234,7 +241,7 @@ public class UDPEchoServer extends Thread{
                 if (bigDataStart) {
                     data = "[]";
                 } else {
-                    info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, str.substring(0, Math.min(100, str.length())));
+                    info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, trim(str));
                 }
                 responseData(id, data, address, port, !bigDataStart);
             }
@@ -322,7 +329,7 @@ public class UDPEchoServer extends Thread{
         echoMap.put(id, new SentData(data, future, resend));
         InetSocketAddress address = (InetSocketAddress)host;
         String str = data.toString();
-        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), str.substring(0, Math.min(100, str.length())));
+        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
         final long finalId = id;
         sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
         return future;
