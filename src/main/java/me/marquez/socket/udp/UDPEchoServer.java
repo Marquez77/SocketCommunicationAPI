@@ -47,7 +47,7 @@ public class UDPEchoServer extends Thread{
     }
 
     private String trim(String str) {
-        return trim(str);
+        return str.substring(0, Math.min(debuggingLength, str.length()));
     }
 
     public UDPEchoServer(int serverPort, Logger logger) throws IOException {
