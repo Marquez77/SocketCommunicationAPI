@@ -1,5 +1,7 @@
 package me.marquez.socket;
 
+import me.marquez.socket.packet.PacketHandler;
+
 import java.net.*;
 
 public interface SocketFactory {

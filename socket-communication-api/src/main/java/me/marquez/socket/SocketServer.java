@@ -1,8 +1,8 @@
 package me.marquez.socket;
 
 import me.marquez.socket.packet.PacketListener;
-import me.marquez.socket.packet.entity.PacketReceive;
-import me.marquez.socket.packet.entity.PacketSend;
+import me.marquez.socket.packet.entity.impl.PacketReceive;
+import me.marquez.socket.packet.entity.impl.PacketSend;
 
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;

@@ -1,8 +1,8 @@
 package me.marquez.socket.packet;
 
 import me.marquez.socket.SocketServer;
-import me.marquez.socket.packet.entity.PacketReceive;
-import me.marquez.socket.packet.entity.PacketResponse;
+import me.marquez.socket.packet.entity.impl.PacketReceive;
+import me.marquez.socket.packet.entity.impl.PacketResponse;
 
 public record PacketMessage(
         SocketServer server,

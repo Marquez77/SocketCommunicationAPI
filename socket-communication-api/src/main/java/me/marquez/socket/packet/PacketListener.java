@@ -1,4 +1,4 @@
 package me.marquez.socket.packet;
 
-public interface PacketListener {
+public interface PacketListener { // Marker Interface
 }

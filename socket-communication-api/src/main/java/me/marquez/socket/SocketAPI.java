@@ -1,13 +1,18 @@
 package me.marquez.socket;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashMap;
 import java.util.Map;
 
-public class SocketLocator {
+public class SocketAPI {
+
+    public static final Logger LOGGER = LoggerFactory.getLogger("SocketAPI");
 
     private static final Map<ServerProtocol, SocketFactory> factories = new HashMap<>();
 
-    public static void register(ServerProtocol protocol, SocketFactory factory) {
+    protected static void register(ServerProtocol protocol, SocketFactory factory) {
         factories.put(protocol, factory);
     }
 
