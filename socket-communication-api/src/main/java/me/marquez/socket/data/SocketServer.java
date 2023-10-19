@@ -11,6 +11,16 @@ import java.util.concurrent.CompletableFuture;
 public interface SocketServer {
 
     /**
+     * @param debug whether print debugging
+     */
+    void setDebug(boolean debug);
+
+    /**
+     * @param length length of debugging message when print
+     */
+    void setDebuggingLength(int length);
+
+    /**
      * @return host of this socket server
      */
     SocketAddress getHost();
