@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 
 // TODO: 2023-10-19 implementation
 public class TCPServer extends AbstractSocketServer {
-    public TCPServer(SocketAddress host, boolean debug) {
+    protected TCPServer(SocketAddress host, boolean debug) {
         super(host, debug);
     }
 

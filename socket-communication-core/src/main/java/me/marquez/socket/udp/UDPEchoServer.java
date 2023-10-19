@@ -27,7 +27,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     private DatagramSocket serverSocket;
 
-    public UDPEchoServer(SocketAddress host, boolean debug) {
+    protected UDPEchoServer(SocketAddress host, boolean debug) {
         super(host, debug);
     }
 
