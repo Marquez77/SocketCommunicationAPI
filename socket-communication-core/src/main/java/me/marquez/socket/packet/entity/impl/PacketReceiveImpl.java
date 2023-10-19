@@ -159,7 +159,10 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
 
     public static PacketReceiveImpl of(String string) {
         String[] split = string.split(String.valueOf(STX), 2);
-        PacketReceiveImpl packet = new PacketReceiveImpl(split[0].split(String.valueOf(ETB)));
+        String[] identifiers = split[0].split(String.valueOf(ETB));
+        if(identifiers.length == 1 && identifiers[0].isEmpty())
+            identifiers = new String[0];
+        PacketReceiveImpl packet = new PacketReceiveImpl(identifiers);
         for (String s : split[1].split(String.valueOf(ETB))) {
             packet.data.add(decode(s));
         }

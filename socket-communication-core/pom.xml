@@ -23,6 +23,7 @@
             <groupId>me.marquez</groupId>
             <artifactId>socket-communication-api</artifactId>
             <version>1.0.1</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

@@ -56,6 +56,11 @@ public class UDPEchoServer extends AbstractSocketServer {
     }
 
     @Override
+    public boolean isOpen() {
+        return serverSocket != null && serverSocket.isBound();
+    }
+
+    @Override
     public void close() throws IOException {
         if(serverSocket.isClosed())
             return;
@@ -218,7 +223,11 @@ public class UDPEchoServer extends AbstractSocketServer {
                 } else {
                     info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, trim(str));
                 }
-                responseData(id, data, address, port, !bigDataStart);
+                try {
+                    responseData(id, data, address, port, !bigDataStart);
+                }catch(Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

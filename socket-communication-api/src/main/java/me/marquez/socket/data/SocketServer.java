@@ -10,7 +10,11 @@ import java.util.concurrent.CompletableFuture;
 
 public interface SocketServer {
 
+    SocketAddress getHost();
+
     void open() throws IOException;
+
+    boolean isOpen();
 
     void close() throws IOException;
 

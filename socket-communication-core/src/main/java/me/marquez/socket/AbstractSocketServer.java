@@ -1,5 +1,6 @@
 package me.marquez.socket;
 
+import lombok.Getter;
 import lombok.Setter;
 import me.marquez.socket.data.SocketServer;
 import me.marquez.socket.packet.PacketHandler;
@@ -19,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractSocketServer implements SocketServer {
 
+    @Getter
     protected final SocketAddress host;
     private final Map<PacketListener, Map<Method, PacketHandler>> listeners;
 

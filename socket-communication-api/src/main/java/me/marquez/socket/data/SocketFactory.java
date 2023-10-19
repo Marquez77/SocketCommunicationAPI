@@ -1,18 +1,20 @@
 package me.marquez.socket.data;
 
+import lombok.NonNull;
+
 import java.net.*;
 
 public interface SocketFactory {
 
-    SocketServer create(SocketAddress host, boolean debug);
+    @NonNull SocketServer create(SocketAddress host, boolean debug);
 
-    SocketServer createOrGet(SocketAddress host, boolean debug);
+    @NonNull SocketServer createOrGet(SocketAddress host, boolean debug);
 
-    default SocketServer create(String host, int port, boolean debug) throws UnknownHostException, SocketException {
+    default @NonNull SocketServer create(String host, int port, boolean debug) throws UnknownHostException, SocketException {
         return create(getSocketAddress(host, port), debug);
     }
 
-    default SocketServer createOrGet(String host, int port, boolean debug) throws UnknownHostException, SocketException {
+    default @NonNull SocketServer createOrGet(String host, int port, boolean debug) throws UnknownHostException, SocketException {
         return createOrGet(getSocketAddress(host, port), debug);
     }
 

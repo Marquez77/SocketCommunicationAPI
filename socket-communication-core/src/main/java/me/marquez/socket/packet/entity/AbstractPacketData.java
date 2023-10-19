@@ -51,7 +51,8 @@ public abstract class AbstractPacketData {
             string  .append(encode(bytes))
                     .append(ETB);
         });
-        string.setLength(string.length()-1);
+        if(string.charAt(string.length()-1) != STX)
+            string.setLength(string.length()-1);
         return string.toString();
     }
 }

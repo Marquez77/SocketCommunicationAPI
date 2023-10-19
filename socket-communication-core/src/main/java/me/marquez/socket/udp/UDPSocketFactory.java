@@ -2,13 +2,14 @@ package me.marquez.socket.udp;
 
 import me.marquez.socket.AbstractSocketFactory;
 import me.marquez.socket.data.SocketServer;
+import org.jetbrains.annotations.NotNull;
 
 import java.net.SocketAddress;
 
 public class UDPSocketFactory extends AbstractSocketFactory {
 
     @Override
-    protected SocketServer createServer(SocketAddress host, boolean debug) {
+    public @NotNull SocketServer create(SocketAddress host, boolean debug) {
         return new UDPEchoServer(host, debug);
     }
 }

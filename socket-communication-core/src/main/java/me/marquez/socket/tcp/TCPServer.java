@@ -21,6 +21,11 @@ public class TCPServer extends AbstractSocketServer {
     }
 
     @Override
+    public boolean isOpen() {
+        return false;
+    }
+
+    @Override
     public void close() {
 
     }
