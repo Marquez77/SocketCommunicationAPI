@@ -31,8 +31,11 @@ public class SocketAPI {
      * @param protocol The protocol to create socket server.
      * @return socket factory for socket server creating
      */
-    @Nullable
-    public static SocketFactory getFactory(ServerProtocol protocol) {
+    @NonNull
+    public static SocketFactory getFactory(@NonNull ServerProtocol protocol) {
+        if(!factories.containsKey(protocol)) {
+            throw new RuntimeException("SocketAPI does not initialized!");
+        }
         return factories.getOrDefault(protocol, null);
     }
 
