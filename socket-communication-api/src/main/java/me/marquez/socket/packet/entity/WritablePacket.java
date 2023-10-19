@@ -20,5 +20,4 @@ public interface WritablePacket {
     WritablePacket append(BigInteger bi);
     WritablePacket append(BigDecimal bd);
     WritablePacket append(UUID uuid);
-
 }

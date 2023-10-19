@@ -6,37 +6,96 @@ import java.net.*;
 
 public interface SocketFactory {
 
-    @NonNull SocketServer create(SocketAddress host, boolean debug);
+    /**
+     * Create new socket server.
+     * @param host The server hostname
+     * @param port The server port
+     * @param debug whether print debugging
+     * @return created socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException if the server host is already bind or else case.
+     */
+    @NonNull SocketServer create(String host, int port, boolean debug) throws UnknownHostException, SocketException;
 
-    @NonNull SocketServer createOrGet(SocketAddress host, boolean debug);
-
-    default @NonNull SocketServer create(String host, int port, boolean debug) throws UnknownHostException, SocketException {
-        return create(getSocketAddress(host, port), debug);
-    }
-
-    default @NonNull SocketServer createOrGet(String host, int port, boolean debug) throws UnknownHostException, SocketException {
-        return createOrGet(getSocketAddress(host, port), debug);
-    }
-
-    default SocketAddress getSocketAddress(String host, int port) throws UnknownHostException, SocketException {
-        InetAddress address = host == null ? InetAddress.getLocalHost() : InetAddress.getByName(host);
-        NetworkInterface ethernet = NetworkInterface.getByInetAddress(address);
-        if(ethernet == null)
-            throw new IllegalArgumentException("invalid host: " + host);
-        InetAddress hostAddress = ethernet.getInetAddresses().nextElement();
-        return new InetSocketAddress(hostAddress, port);
-    }
-
-    default SocketServer create(String host, int port) throws UnknownHostException, SocketException {
+    /**
+     * Create new socket server without debugging.
+     * @param host The server host
+     * @param port The server port
+     * @return created socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException if the server host is already bind or else case.
+     */
+    default @NonNull SocketServer create(String host, int port) throws UnknownHostException, SocketException {
         return create(host, port, false);
     }
 
-    default SocketServer create(int port, boolean debug) throws UnknownHostException, SocketException {
+    /**
+     * Create new socket server on localhost.
+     * @param port The server port
+     * @param debug whether print debugging
+     * @return created socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException if the server host is already bind or else case.
+     */
+    default @NonNull SocketServer create(int port, boolean debug) throws UnknownHostException, SocketException {
         return create(null, port, debug);
     }
 
-    default SocketServer create(int port) throws UnknownHostException, SocketException {
+    /**
+     * Create new socket server on localhost without debugging.
+     * @param port The server port
+     * @return created socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException if the server host is already bind or else case.
+     */
+    default @NonNull SocketServer create(int port) throws UnknownHostException, SocketException {
         return create(port, false);
+    }
+
+    /**
+     * Create new socket server, or Get opened socket server from the host if the host is already bound.
+     * @param host The server hostname
+     * @param port The server port
+     * @param debug whether print debugging
+     * @return created socket server or opened socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException something wrong when create new socket.
+     */
+    @NonNull SocketServer createOrGet(String host, int port, boolean debug) throws UnknownHostException, SocketException;
+
+    /**
+     * Create new socket server without debugging, or Get opened socket server from the host if the host is already bound.
+     * @param host The server hostname
+     * @param port The server port
+     * @return created socket server or opened socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException something wrong when create new socket.
+     */
+    default @NonNull SocketServer createOrGet(String host, int port) throws UnknownHostException, SocketException {
+        return createOrGet(host, port, false);
+    }
+
+    /**
+     * Create new socket server on localhost, or Get opened socket server from the host if the host is already bound.
+     * @param port The server port
+     * @param debug whether print debugging
+     * @return created socket server or opened socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException something wrong when create new socket.
+     */
+    default @NonNull SocketServer createOrGet(int port, boolean debug) throws UnknownHostException, SocketException {
+        return createOrGet(null, port, debug);
+    }
+
+    /**
+     * Create new socket server on localhost without debugging, or Get opened socket server from the host if the host is already bound.
+     * @param port The server port
+     * @return created socket server or opened socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException something wrong when create new socket.
+     */
+    default @NonNull SocketServer createOrGet(int port) throws UnknownHostException, SocketException {
+        return createOrGet(port, false);
     }
 
 }

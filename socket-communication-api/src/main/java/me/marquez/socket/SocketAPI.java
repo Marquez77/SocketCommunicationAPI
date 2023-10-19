@@ -26,11 +26,21 @@ public class SocketAPI {
         factories.put(protocol, factory);
     }
 
+    /**
+     * Get socket factory for socket server creating
+     * @param protocol The protocol to create socket server.
+     * @return socket factory for socket server creating
+     */
     @Nullable
     public static SocketFactory getFactory(ServerProtocol protocol) {
         return factories.getOrDefault(protocol, null);
     }
 
+    /**
+     * Create sending packet with identifiers
+     * @param identifiers identifiers for classifying packets.
+     * @return packet instance
+     */
     public static PacketSend createPacketSend(@NonNull String... identifiers) {
         if(createFunction == null) {
             throw new RuntimeException("SocketAPI does not initialized!");
@@ -38,6 +48,10 @@ public class SocketAPI {
         return createFunction.apply(identifiers);
     }
 
+    /**
+     * Create sending packet without identifiers
+     * @return packet instance
+     */
     public static PacketSend createPacketSend() {
         return createPacketSend(new String[0]);
     }

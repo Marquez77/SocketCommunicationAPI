@@ -9,6 +9,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PacketHandler {
 
+    /**
+     * @return Identifiers for classifying packets.
+     */
     String[] identifiers() default {};
 
 }
