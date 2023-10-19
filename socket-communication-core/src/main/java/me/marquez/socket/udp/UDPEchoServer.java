@@ -234,7 +234,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     private void responseData(long id, String data, InetAddress address, int port, boolean handlingResponse) {
         PacketResponse response_packet = new PacketResponseImpl(); //반환 데이터 만들기
-        InetSocketAddress host = new InetSocketAddress(address, port);
+        SocketAddress host = new InetSocketAddress(address, port);
         if(handlingResponse) {
             PacketReceive receive_packet = PacketReceiveImpl.of(data); //수신 데이터 만들기
             onReceive(host, receive_packet, response_packet);

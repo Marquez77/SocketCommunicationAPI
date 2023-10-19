@@ -69,13 +69,13 @@ public abstract class AbstractSocketServer implements SocketServer {
         listeners.put(listener, map);
     }
 
-    public void onReceive(InetSocketAddress inetSocketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
+    public void onReceive(SocketAddress socketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
         String[] identifiers = receive_packet.getIdentifiers();
         listeners.forEach((listener, map) -> {
             map.forEach((method, handler) -> {
                 if(Arrays.compare(identifiers, handler.identifiers()) == 0) {
                     SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
-                    PacketMessage message = new PacketMessage(this, receive_packet.clonePacket(), response_packet);
+                    PacketMessage message = new PacketMessage(this, socketAddress, receive_packet.clonePacket(), response_packet);
                     try {
                         method.invoke(listener, message);
                     } catch (IllegalAccessException | InvocationTargetException e) {
