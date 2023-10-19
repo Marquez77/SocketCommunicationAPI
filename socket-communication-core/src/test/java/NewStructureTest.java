@@ -7,7 +7,9 @@ import me.marquez.socket.packet.PacketListener;
 import me.marquez.socket.packet.PacketMessage;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Arrays;
+import java.util.UUID;
 
 public class NewStructureTest {
     public static void main(String[] args) throws IOException {
@@ -26,17 +28,21 @@ public class NewStructureTest {
 
         server2.registerListener(new PacketListener() {
             @PacketHandler
-            public void onReceivePacket(PacketMessage message) throws IOException {
+            public void onReceivePacket(PacketMessage message) throws IOException, ClassNotFoundException {
                 System.out.println("Receive: " + message.received_packet());
                 System.out.println("r1: " + message.received_packet().nextString());
-                System.out.println("r2: " + message.received_packet().nextString());
+                System.out.println("r2: " + message.received_packet().nextInt());
+                System.out.println("r3: " + message.received_packet().nextUUID());
+                System.out.println("r4: " + message.received_packet().nextObject(User.class));
                 message.response_packet().append("RESPONSE");
             }
         });
 
         var send = SocketAPI.createPacketSend();
         send.append("TEST한글")
-            .append("QWER");
+            .append(1234)
+            .append(UUID.randomUUID())
+            .append(new User(UUID.randomUUID(), "marquez", 100));
         System.out.println("send: " + send.toString().isEmpty() + " " + Arrays.toString(send.toString().getBytes()));
         server1.sendDataAndReceive(server2.getHost(), send)
                 .whenComplete((packetReceive, throwable) -> {
@@ -51,4 +57,6 @@ public class NewStructureTest {
             server3.open();
         }
     }
+
+    public static record User(UUID uuid, String name, int level) implements Serializable {}
 }

@@ -137,7 +137,10 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
     @Override
     public @Nullable UUID nextUUID() {
         try {
-            return UUID.nameUUIDFromBytes(next());
+            ByteBuffer buffer = ByteBuffer.wrap(next());
+            long most = buffer.getLong();
+            long least = buffer.getLong();
+            return new UUID(most, least);
         } catch (NullPointerException | ArrayIndexOutOfBoundsException | NumberFormatException e) {
             return null;
         }
