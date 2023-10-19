@@ -1,5 +1,7 @@
 package me.marquez.socket;
 
+import me.marquez.socket.data.ServerProtocol;
+import me.marquez.socket.data.SocketFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,17 +1,18 @@
-package me.marquez.socket;
+package me.marquez.socket.data;
 
 import me.marquez.socket.packet.PacketListener;
 import me.marquez.socket.packet.entity.impl.PacketReceive;
 import me.marquez.socket.packet.entity.impl.PacketSend;
 
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 
 public interface SocketServer {
 
-    void open();
+    void open() throws IOException;
 
-    void close();
+    void close() throws IOException;
 
     void registerListener(PacketListener listener);
 

@@ -1,75 +1,44 @@
 package me.marquez.socket.udp;
 
-import lombok.*;
-import me.marquez.socket.udp.entity.UDPEchoData;
-import me.marquez.socket.udp.entity.UDPEchoResponse;
-import me.marquez.socket.udp.entity.UDPEchoSend;
+import lombok.AllArgsConstructor;
+import me.marquez.socket.AbstractSocketServer;
+import me.marquez.socket.SocketAPI;
+import me.marquez.socket.packet.entity.impl.PacketResponse;
+import me.marquez.socket.packet.entity.impl.PacketSend;
 import me.marquez.socket.udp.exception.DataLossException;
 import me.marquez.socket.udp.exception.NoEchoDataException;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class UDPEchoServer extends Thread{
+public class UDPEchoServer extends AbstractSocketServer {
 
     private static final long TIMEOUT = 30; //UDP 응답 최대 대기 시간 (초)
     private static final AtomicInteger identifier = new AtomicInteger(0); //동시성 문제 해결을 위해 원자성을 보장하는 Atomic 클래스 사용
 
-    private final int serverPort;
-    private final Logger logger;
-
-    @Setter
-    private boolean debug;
-
-    @Setter
-    private int debuggingLength = 100;
-
-    @Getter
     private DatagramSocket serverSocket;
-    private final List<UDPMessageHandler> handlers;
+
+    public UDPEchoServer(SocketAddress host, boolean debug) {
+        super(host, debug);
+    }
 
     private long makeId() {
         return System.currentTimeMillis()*10 + identifier.getAndIncrement();
     }
 
-    private void info(String s, Object o) {
-        if(debug) logger.info(s, o);
-    }
-
-    private void info(String s, Object... o) {
-        if(debug) logger.info(s, o);
-    }
-
-    private String trim(String str) {
-        return str.substring(0, Math.min(debuggingLength, str.length()));
-    }
-
-    public UDPEchoServer(int serverPort, Logger logger) throws IOException {
-        this.serverPort = serverPort;
-        this.logger = logger;
-        this.handlers = new ArrayList<>();
-        init();
-    }
-
-    private void init() throws IOException {
-        serverSocket = new DatagramSocket(serverPort);
-    }
-
-    public void registerHandler(UDPMessageHandler handler) {
-        handlers.add(handler);
-    }
 
     //identifier, response future
     private final Map<Long, SentData> echoMap = new ConcurrentHashMap<>();
     private final Map<Long, CompletableFuture<Void>> bigDataBeginMap = new ConcurrentHashMap<>();
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
+    private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor();
     private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
     private final ExecutorService sendThreadPool = Executors.newCachedThreadPool();
     private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
@@ -77,49 +46,26 @@ public class UDPEchoServer extends Thread{
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
     private static final int MAX_PACKET_SIZE = 65507;
 
-    @AllArgsConstructor
-    private static class SentData {
-        final UDPEchoSend data;
-        final CompletableFuture<UDPEchoResponse> future;
-        final boolean resend;
-    }
-
-    private static abstract class BigData {
-        final ExecutorService threadPool = Executors.newSingleThreadExecutor();
-        int targetLength;
-        int currentLength;
-        String[] data;
-        long timeout;
-
-        public BigData(int length, ExecutorService executors) {
-            this.targetLength = length;
-            this.currentLength = 0;
-            int size = (int)Math.ceil((double)length/MAX_PACKET_SIZE)+1;
-            this.data = new String[size];
-            Arrays.fill(data, "");
-            executors.submit(this::checkReceiving);
-        }
-
-        public boolean add(int i, String data) {
-            this.data[i] = data;
-            currentLength += data.length();
-            timeout += System.currentTimeMillis()+10L;
-            return currentLength == targetLength;
-        }
-
-        public void checkReceiving() {
-            timeout = System.currentTimeMillis()+100L;
-            while(System.currentTimeMillis() < timeout);
-            if(currentLength != targetLength) timeout();
-        }
-
-        abstract public void timeout();
+    @Override
+    public void open() throws IOException {
+        serverSocket = new DatagramSocket(host);
+        mainThreadPool.submit(this::run);
     }
 
     @Override
+    public void close() throws IOException {
+        if(serverSocket.isClosed())
+            return;
+        serverSocket.close();
+        mainThreadPool.shutdownNow();
+        receiveThreadPool.shutdownNow();
+        sendThreadPool.shutdownNow();
+        waitingThreadPool.shutdownNow();
+    }
+
     public void run() {
-        info("Starting udp echo server listening port on {}", serverPort);
-        while (!serverSocket.isClosed() && !this.isInterrupted()) {
+        SocketAPI.LOGGER.info("Starting udp echo server listening port on {}", host);
+        while (!serverSocket.isClosed() && !Thread.currentThread().isInterrupted()) {
             try {
                 byte[] buffer = new byte[serverSocket.getReceiveBufferSize()];
                 final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
@@ -137,7 +83,7 @@ public class UDPEchoServer extends Thread{
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            start();
+            run();
         }
     }
 
@@ -347,13 +293,42 @@ public class UDPEchoServer extends Thread{
         return future;
     }
 
-    public boolean close() {
-        if(serverSocket.isClosed()) return false;
-        serverSocket.close();
-        receiveThreadPool.shutdownNow();
-        sendThreadPool.shutdownNow();
-        waitingThreadPool.shutdownNow();
-        interrupt();
-        return true;
+    @AllArgsConstructor
+    private static class SentData {
+        final PacketSend data;
+        final CompletableFuture<PacketResponse> future;
+        final boolean resend;
+    }
+
+    private static abstract class BigData {
+        final ExecutorService threadPool = Executors.newSingleThreadExecutor();
+        int targetLength;
+        int currentLength;
+        String[] data;
+        long timeout;
+
+        public BigData(int length, ExecutorService executors) {
+            this.targetLength = length;
+            this.currentLength = 0;
+            int size = (int)Math.ceil((double)length/MAX_PACKET_SIZE)+1;
+            this.data = new String[size];
+            Arrays.fill(data, "");
+            executors.submit(this::checkReceiving);
+        }
+
+        public boolean add(int i, String data) {
+            this.data[i] = data;
+            currentLength += data.length();
+            timeout += System.currentTimeMillis()+10L;
+            return currentLength == targetLength;
+        }
+
+        public void checkReceiving() {
+            timeout = System.currentTimeMillis()+100L;
+            while(System.currentTimeMillis() < timeout);
+            if(currentLength != targetLength) timeout();
+        }
+
+        abstract public void timeout();
     }
 }

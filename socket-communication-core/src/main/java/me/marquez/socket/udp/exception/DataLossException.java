@@ -3,8 +3,8 @@ package me.marquez.socket.udp.exception;
 
 import lombok.Getter;
 
+@Getter
 public class DataLossException extends Exception{
-    @Getter
     private final double loss;
 
     public DataLossException(int sentLength, int receivedLength, double loss) {
