@@ -1,8 +1,10 @@
 package me.marquez.socket.tcp;
 
 import me.marquez.socket.AbstractSocketServer;
-import me.marquez.socket.packet.entity.impl.PacketReceive;
-import me.marquez.socket.packet.entity.impl.PacketSend;
+import me.marquez.socket.packet.entity.PacketReceive;
+import me.marquez.socket.packet.entity.PacketSend;
+import me.marquez.socket.packet.entity.impl.PacketReceiveImpl;
+import me.marquez.socket.packet.entity.impl.PacketSendImpl;
 
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +31,8 @@ public class TCPServer extends AbstractSocketServer {
     }
 
     @Override
-    public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress address, PacketSend send_packet) {
+    public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress address, PacketSend send_packet, boolean resend) {
         return null;
     }
+
 }

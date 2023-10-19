@@ -5,8 +5,10 @@ import me.marquez.socket.data.SocketServer;
 import me.marquez.socket.packet.PacketHandler;
 import me.marquez.socket.packet.PacketListener;
 import me.marquez.socket.packet.PacketMessage;
-import me.marquez.socket.packet.entity.impl.PacketReceive;
-import me.marquez.socket.packet.entity.impl.PacketResponse;
+import me.marquez.socket.packet.entity.PacketReceive;
+import me.marquez.socket.packet.entity.PacketResponse;
+import me.marquez.socket.packet.entity.impl.PacketReceiveImpl;
+import me.marquez.socket.packet.entity.impl.PacketResponseImpl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -32,15 +34,21 @@ public abstract class AbstractSocketServer implements SocketServer {
         this.debug = debug;
     }
 
-    private void info(String s, Object o) {
-        if(debug) SocketAPI.LOGGER.info(s, o);
+    protected void info(String s, Object o) {
+        if(debug)
+            SocketAPI.LOGGER.info(s, o);
     }
 
-    private void info(String s, Object... o) {
-        if(debug) SocketAPI.LOGGER.info(s, o);
+    protected void info(String s, Object... o) {
+        if(debug)
+            SocketAPI.LOGGER.info(s, o);
     }
 
-    private String trim(String str) {
+    protected void trace(Throwable e) {
+        SocketAPI.LOGGER.trace("", e);
+    }
+
+    protected String trim(String str) {
         return str.substring(0, Math.min(debuggingLength, str.length()));
     }
 
@@ -61,11 +69,11 @@ public abstract class AbstractSocketServer implements SocketServer {
 
     public void onReceive(InetSocketAddress inetSocketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
         String[] identifiers = receive_packet.getIdentifiers();
-        PacketMessage message = new PacketMessage(this, receive_packet, response_packet);
         listeners.forEach((listener, map) -> {
             map.forEach((method, handler) -> {
                 if(Arrays.compare(identifiers, handler.identifiers()) == 0) {
                     SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
+                    PacketMessage message = new PacketMessage(this, receive_packet.clonePacket(), response_packet);
                     try {
                         method.invoke(listener, message);
                     } catch (IllegalAccessException | InvocationTargetException e) {

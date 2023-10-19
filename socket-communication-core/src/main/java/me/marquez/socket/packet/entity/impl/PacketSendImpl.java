@@ -1,14 +1,16 @@
 package me.marquez.socket.packet.entity.impl;
 
+import me.marquez.socket.packet.entity.AbstractPacketData;
+import me.marquez.socket.packet.entity.PacketSend;
 import me.marquez.socket.packet.entity.WritablePacket;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 
-public class PacketSend extends AbstractPacketData implements WritablePacket {
+public class PacketSendImpl extends AbstractPacketData implements PacketSend {
 
-    public PacketSend(String... identifiers) {
+    public PacketSendImpl(String... identifiers) {
         super(identifiers);
     }
 

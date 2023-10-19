@@ -3,8 +3,11 @@ package me.marquez.socket.udp;
 import lombok.AllArgsConstructor;
 import me.marquez.socket.AbstractSocketServer;
 import me.marquez.socket.SocketAPI;
-import me.marquez.socket.packet.entity.impl.PacketResponse;
-import me.marquez.socket.packet.entity.impl.PacketSend;
+import me.marquez.socket.packet.entity.PacketReceive;
+import me.marquez.socket.packet.entity.PacketResponse;
+import me.marquez.socket.packet.entity.PacketSend;
+import me.marquez.socket.packet.entity.impl.PacketReceiveImpl;
+import me.marquez.socket.packet.entity.impl.PacketResponseImpl;
 import me.marquez.socket.udp.exception.DataLossException;
 import me.marquez.socket.udp.exception.NoEchoDataException;
 import org.jetbrains.annotations.Nullable;
@@ -63,27 +66,54 @@ public class UDPEchoServer extends AbstractSocketServer {
         waitingThreadPool.shutdownNow();
     }
 
+    @Override
+    public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
+        long id = makeId();
+        while(echoMap.containsKey(id)) id = makeId();
+        CompletableFuture<PacketReceive> future = new CompletableFuture<>();
+        echoMap.put(id, new SentData(data, future, resend));
+        InetSocketAddress address = (InetSocketAddress)host;
+        String str = data.toString();
+        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
+        final long finalId = id;
+        sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<Void> sendDataFuture(SocketAddress host, final PacketSend data) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        sendDataAndReceive(host, data).orTimeout(TIMEOUT, TimeUnit.SECONDS)
+                .whenCompleteAsync((result, throwable) -> {
+                    //            logger.info("Compare data:\t \n\t\tSent:\t{}1\n\t\tReceive:\t{}1\nequals: {}", data, result, data.equals(result));
+                    //            if(throwable == null && data.equals(result)) future.complete(null); //보낸 데이터와 받은 데이터가 일치 할 때
+                    if(throwable == null) future.complete(null);
+                    else future.completeExceptionally(new NoEchoDataException());
+                });
+        return future;
+    }
+
     public void run() {
-        SocketAPI.LOGGER.info("Starting udp echo server listening port on {}", host);
+        info("Starting udp echo server listening port on {}", host);
         while (!serverSocket.isClosed() && !Thread.currentThread().isInterrupted()) {
             try {
                 byte[] buffer = new byte[serverSocket.getReceiveBufferSize()];
                 final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
                 serverSocket.receive(receiveData);
                 receiveThreadPool.submit(() -> onReceiveData(receiveData));
-            }catch(Exception e) {
-                if(e.getMessage().contains("socket closed")) logger.info("socket closed");
-                else logger.warn("IOException: {}", e.getMessage());
-                e.printStackTrace();
+            }catch(IOException e) {
+                if(e.getMessage().contains("socket closed"))
+                    info("socket closed");
+                else
+                    SocketAPI.LOGGER.trace("", e);
             }
         }
-        if(!this.isInterrupted()) {
+        if(!Thread.currentThread().isInterrupted()) {
             try {
-                init();
+                open();
             } catch (IOException e) {
-                e.printStackTrace();
+                SocketAPI.LOGGER.trace("", e);
             }
-            run();
         }
     }
 
@@ -148,7 +178,6 @@ public class UDPEchoServer extends AbstractSocketServer {
     private void processReceivedData(InetAddress address, int port, String str, boolean bigDataStart) {
         String[] split = str.split(";", 2);
         final long id = Long.parseLong(split[0]);
-//                logger.info("[{}:{}] timestamp: {}", address.getHostAddress(), port, timestamp);
         int receivedLength = 0;
         if(split[1].startsWith("l")) { //Response 데이터 인지 확인
             split = split[1].substring(1).split(";", 2);
@@ -165,7 +194,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             final String[] finalSplit = split;
             final int finalReceivedLength = receivedLength;
             echoMap.computeIfPresent(id,(k, sentData) -> {
-                UDPEchoResponse response = UDPEchoResponse.of(finalSplit[1]);
+                PacketReceive receive_packet = PacketReceiveImpl.of(finalSplit[1]);
                 int sentLength = sentData.data.toString().length();
                 if(finalReceivedLength != sentLength) { //보낸 데이터와 받은 데이터 길이가 다를 경우
                     double loss = 1-(double)finalReceivedLength/sentLength;
@@ -176,7 +205,7 @@ public class UDPEchoServer extends AbstractSocketServer {
                         sentData.future.completeExceptionally(new DataLossException(sentLength, finalReceivedLength, loss));
                     }
                 }else {
-                    sentData.future.complete(response);
+                    sentData.future.complete(receive_packet);
                 }
                 return null;
             });
@@ -195,17 +224,17 @@ public class UDPEchoServer extends AbstractSocketServer {
     }
 
     private void responseData(long id, String data, InetAddress address, int port, boolean handlingResponse) {
-        UDPEchoResponse response = new UDPEchoResponse(); //반환 데이터 만들기
+        PacketResponse response_packet = new PacketResponseImpl(); //반환 데이터 만들기
         InetSocketAddress host = new InetSocketAddress(address, port);
         if(handlingResponse) {
-            UDPEchoSend send = UDPEchoSend.of(data); //수신 데이터 만들기
-            handlers.forEach(udpMessageHandler -> udpMessageHandler.onReceive(host, send.clone(), response));
+            PacketReceive receive_packet = PacketReceiveImpl.of(data); //수신 데이터 만들기
+            onReceive(host, receive_packet, response_packet);
         }
-        info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response);
-        sendData(response, id, host, null, ("l" + data.length() + ";"));
+        info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response_packet);
+        sendData((PacketSend)response_packet, id, host, null, ("l" + data.length() + ";"));
     }
 
-    private void sendData(UDPEchoData data, long id, SocketAddress host, CompletableFuture<?> future, String responseHeader) {
+    private void sendData(PacketSend data, long id, SocketAddress host, CompletableFuture<?> future, String responseHeader) {
         String serializedData = data.toString();
         int length = serializedData.length();
         // 데이터가 최대 패킷 크기보다 클 경우 분할해서 전송
@@ -216,20 +245,18 @@ public class UDPEchoServer extends AbstractSocketServer {
                 if(future != null) future.completeExceptionally(e);
             }
         }else {
-            sendData("", id, serializedData, host, future, responseHeader);
+            sendDataPacket("", id, serializedData, host, future, responseHeader);
         }
     }
 
-    private void sendData(String header, long finalId, String data, SocketAddress host, @Nullable CompletableFuture<?> future, String responseHeader) {
-        byte[] buffer = (header + finalId + ";" + responseHeader + data).getBytes(StandardCharsets.UTF_8);
-        DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
-        try {
-            serverSocket.send(sendData);
-        } catch (Exception e) {
-            e.printStackTrace();
-            if(future != null) future.completeExceptionally(e);
-            else e.printStackTrace();
-        }
+    private CompletableFuture<Void> sendBigDataBeginAndReceive(String header, long id, SocketAddress host) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        bigDataBeginMap.put(id, future);
+        InetSocketAddress address = (InetSocketAddress)host;
+        info("[CURRENT->{}:{}] Sent big data begin", address.getHostString(), address.getPort());
+        final long finalId = id;
+        sendThreadPool.submit(() -> sendDataPacket(header, finalId, "", host, future, ""));
+        return future;
     }
     private void sendBigData(int length, long finalId, String serializedData, SocketAddress host, CompletableFuture<?> future, String responseHeader) throws Exception{
         /*
@@ -252,51 +279,28 @@ public class UDPEchoServer extends AbstractSocketServer {
             bitSize = MAX_PACKET_SIZE-15-headerLength; //15 는 id + ; 의 길이
             endIndex = Math.min(index + bitSize, length);
             String bitData = serializedData.substring(index, endIndex);
-            sendData(header, finalId, bitData, host, future, responseHeader);
+            sendDataPacket(header, finalId, bitData, host, future, responseHeader);
 //            if(i%2 == 0) Thread.sleep(1);
         }
     }
-    private CompletableFuture<Void> sendBigDataBeginAndReceive(String header, long id, SocketAddress host) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        bigDataBeginMap.put(id, future);
-        InetSocketAddress address = (InetSocketAddress)host;
-        info("[CURRENT->{}:{}] Sent big data begin", address.getHostString(), address.getPort());
-        final long finalId = id;
-        sendThreadPool.submit(() -> sendData(header, finalId, "", host, future, ""));
-        return future;
-    }
-    public CompletableFuture<UDPEchoResponse> sendDataAndReceive(SocketAddress host, final UDPEchoSend data) {
-        return sendDataAndReceive(host, data, false);
-    }
-    public CompletableFuture<UDPEchoResponse> sendDataAndReceive(SocketAddress host, final UDPEchoSend data, boolean resend) {
-        long id = makeId();
-        while(echoMap.containsKey(id)) id = makeId();
-        CompletableFuture<UDPEchoResponse> future = new CompletableFuture<>();
-        echoMap.put(id, new SentData(data, future, resend));
-        InetSocketAddress address = (InetSocketAddress)host;
-        String str = data.toString();
-        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
-        final long finalId = id;
-        sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
-        return future;
-    }
 
-    public CompletableFuture<Void> sendData(SocketAddress host, final UDPEchoSend data) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        sendDataAndReceive(host, data).orTimeout(TIMEOUT, TimeUnit.SECONDS)
-        .whenCompleteAsync((result, throwable) -> {
-//            logger.info("Compare data:\t \n\t\tSent:\t{}1\n\t\tReceive:\t{}1\nequals: {}", data, result, data.equals(result));
-//            if(throwable == null && data.equals(result)) future.complete(null); //보낸 데이터와 받은 데이터가 일치 할 때
-            if(throwable == null) future.complete(null);
-            else future.completeExceptionally(new NoEchoDataException());
-        });
-        return future;
+    private void sendDataPacket(String header, long finalId, String data, SocketAddress host, @Nullable CompletableFuture<?> future, String responseHeader) {
+        byte[] buffer = (header + finalId + ";" + responseHeader + data).getBytes(StandardCharsets.UTF_8);
+        DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
+        try {
+            serverSocket.send(sendData);
+        } catch (Exception e) {
+            if(future != null)
+                future.completeExceptionally(e);
+            else
+                trace(e);
+        }
     }
 
     @AllArgsConstructor
     private static class SentData {
         final PacketSend data;
-        final CompletableFuture<PacketResponse> future;
+        final CompletableFuture<PacketReceive> future;
         final boolean resend;
     }
 

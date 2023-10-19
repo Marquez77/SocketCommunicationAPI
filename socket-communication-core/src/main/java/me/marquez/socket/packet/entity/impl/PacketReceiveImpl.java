@@ -1,5 +1,7 @@
 package me.marquez.socket.packet.entity.impl;
 
+import me.marquez.socket.packet.entity.AbstractPacketData;
+import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.packet.entity.ReadablePacket;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,9 +16,9 @@ import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.UUID;
 
-public class PacketReceive extends AbstractPacketData implements ReadablePacket, Cloneable {
+public class PacketReceiveImpl extends AbstractPacketData implements PacketReceive {
 
-    public PacketReceive(String... identifiers) {
+    public PacketReceiveImpl(String... identifiers) {
         super(identifiers);
     }
 
@@ -144,5 +146,23 @@ public class PacketReceive extends AbstractPacketData implements ReadablePacket,
     @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
+    }
+
+    @Override
+    public PacketReceive clonePacket() {
+        try {
+            return (PacketReceive) clone();
+        } catch (CloneNotSupportedException e) {
+            return null;
+        }
+    }
+
+    public static PacketReceiveImpl of(String string) {
+        String[] split = string.split(String.valueOf(STX), 2);
+        PacketReceiveImpl packet = new PacketReceiveImpl(split[0].split(String.valueOf(ETB)));
+        for (String s : split[1].split(String.valueOf(ETB))) {
+            packet.data.add(decode(s));
+        }
+        return packet;
     }
 }

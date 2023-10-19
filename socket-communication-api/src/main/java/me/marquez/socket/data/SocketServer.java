@@ -1,8 +1,8 @@
 package me.marquez.socket.data;
 
 import me.marquez.socket.packet.PacketListener;
-import me.marquez.socket.packet.entity.impl.PacketReceive;
-import me.marquez.socket.packet.entity.impl.PacketSend;
+import me.marquez.socket.packet.entity.PacketReceive;
+import me.marquez.socket.packet.entity.PacketSend;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -22,6 +22,10 @@ public interface SocketServer {
         sendDataFuture(address, send_packet).join();
     }
 
-    CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress address, PacketSend send_packet);
+    CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress address, PacketSend send_packet, boolean resend);
+
+    default CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress address, PacketSend send_packet) {
+        return sendDataAndReceive(address, send_packet, false);
+    }
 
 }
