@@ -31,16 +31,18 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
         return this;
     }
 
-    private void append(Object data) throws IOException {
+    private void append(Object data) {
         ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         try (ObjectOutputStream objectStream = new ObjectOutputStream(byteStream)) {
             objectStream.writeObject(data);
             append(byteStream.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
-    public WritablePacket append(Object... data) throws IOException {
+    public WritablePacket append(Object... data) {
         for (Object datum : data)
             append(datum);
         return this;

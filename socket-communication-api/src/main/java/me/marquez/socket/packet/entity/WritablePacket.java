@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public interface WritablePacket {
     WritablePacket setIdentifier(String... identifiers);
-    WritablePacket append(Object... data) throws IOException;
+    WritablePacket append(Object... data);
     WritablePacket append(byte b);
     WritablePacket append(byte[] bytes);
     WritablePacket append(char c);
