@@ -16,6 +16,7 @@ public interface ReadablePacket {
     byte[] next() throws NullPointerException, ArrayIndexOutOfBoundsException;
     byte[] prev() throws NullPointerException, ArrayIndexOutOfBoundsException;
     byte nextByte() throws NullPointerException, ArrayIndexOutOfBoundsException;
+    boolean nextBoolean() throws NullPointerException, ArrayIndexOutOfBoundsException;
     char nextChar() throws NullPointerException, ArrayIndexOutOfBoundsException;
     short nextShort() throws NullPointerException, ArrayIndexOutOfBoundsException, NumberFormatException;
     int nextInt() throws NullPointerException, ArrayIndexOutOfBoundsException, NumberFormatException;

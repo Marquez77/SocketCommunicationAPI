@@ -82,6 +82,11 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
     }
 
     @Override
+    public boolean nextBoolean() throws NullPointerException, ArrayIndexOutOfBoundsException {
+        return next()[0] != 0;
+    }
+
+    @Override
     public char nextChar() throws NullPointerException, ArrayIndexOutOfBoundsException {
         return (char)next()[0];
     }

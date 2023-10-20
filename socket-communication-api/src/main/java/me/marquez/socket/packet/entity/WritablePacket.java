@@ -10,6 +10,7 @@ public interface WritablePacket {
     WritablePacket append(Object... data);
     WritablePacket append(byte b);
     WritablePacket append(byte[] bytes);
+    WritablePacket append(boolean b);
     WritablePacket append(char c);
     WritablePacket append(short s);
     WritablePacket append(int i);

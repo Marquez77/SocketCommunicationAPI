@@ -54,6 +54,11 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
     }
 
     @Override
+    public WritablePacket append(boolean b) {
+        return append(new byte[] { (byte) (b ? 1 : 0) });
+    }
+
+    @Override
     public WritablePacket append(char c) {
         return append((byte)c);
     }
