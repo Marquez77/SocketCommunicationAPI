@@ -2,14 +2,11 @@ package me.marquez.socket.packet.entity.impl;
 
 import me.marquez.socket.packet.entity.AbstractPacketData;
 import me.marquez.socket.packet.entity.PacketReceive;
-import me.marquez.socket.packet.entity.ReadablePacket;
+import me.marquez.socket.utils.SerializeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -31,10 +28,7 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
     @Override
     public @Nullable Object nextObject() throws IOException, ClassNotFoundException {
         try {
-            InputStream byteStream = new ByteArrayInputStream(next());
-            try (ObjectInputStream objectStream = new ObjectInputStream(byteStream)) {
-                return objectStream.readObject();
-            }
+            return SerializeUtil.byteArrayToObject(next());
         } catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
             return null;
         }
@@ -172,7 +166,7 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
             identifiers = new String[0];
         PacketReceiveImpl packet = new PacketReceiveImpl(identifiers);
         for (String s : split[1].split(String.valueOf(ETB))) {
-            packet.data.add(decode(s));
+            packet.data.add(SerializeUtil.decode(s));
         }
         return packet;
     }

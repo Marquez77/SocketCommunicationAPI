@@ -3,6 +3,7 @@ package me.marquez.socket.packet.entity.impl;
 import me.marquez.socket.packet.entity.AbstractPacketData;
 import me.marquez.socket.packet.entity.PacketSend;
 import me.marquez.socket.packet.entity.WritablePacket;
+import me.marquez.socket.utils.SerializeUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,13 +33,7 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
     }
 
     private void append(Object data) {
-        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-        try (ObjectOutputStream objectStream = new ObjectOutputStream(byteStream)) {
-            objectStream.writeObject(data);
-            append(byteStream.toByteArray());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        append(SerializeUtil.objectToByteArray(data));
     }
 
     @Override
