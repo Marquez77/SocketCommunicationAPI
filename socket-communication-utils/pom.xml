@@ -6,10 +6,11 @@
     <parent>
         <groupId>me.marquez</groupId>
         <artifactId>socket-communication</artifactId>
-        <version>1.0.1</version>
+        <version>1.0.2</version>
     </parent>
 
     <artifactId>socket-communication-utils</artifactId>
+    <version>1.0.1</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

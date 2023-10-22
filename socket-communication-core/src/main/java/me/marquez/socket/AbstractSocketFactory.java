@@ -39,7 +39,7 @@ public abstract class AbstractSocketFactory implements SocketFactory {
             try {
                 return create(host, debug);
             }catch(UnknownHostException | SocketException e) {
-                SocketAPI.LOGGER.trace("host: " + host, e);
+                SocketAPI.LOGGER.error("host: " + host, e);
                 return null;
             }
         });

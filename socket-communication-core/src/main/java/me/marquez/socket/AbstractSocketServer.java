@@ -8,12 +8,9 @@ import me.marquez.socket.packet.PacketListener;
 import me.marquez.socket.packet.PacketMessage;
 import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.packet.entity.PacketResponse;
-import me.marquez.socket.packet.entity.impl.PacketReceiveImpl;
-import me.marquez.socket.packet.entity.impl.PacketResponseImpl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,8 +43,8 @@ public abstract class AbstractSocketServer implements SocketServer {
             SocketAPI.LOGGER.info(s, o);
     }
 
-    protected void trace(Throwable e) {
-        SocketAPI.LOGGER.trace("", e);
+    protected void error(Throwable e) {
+        SocketAPI.LOGGER.error("", e);
     }
 
     protected String trim(String str) {
@@ -69,7 +66,7 @@ public abstract class AbstractSocketServer implements SocketServer {
         listeners.put(listener, map);
     }
 
-    public void onReceive(SocketAddress socketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
+    protected void onReceive(SocketAddress socketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
         String[] identifiers = receive_packet.getIdentifiers();
         listeners.forEach((listener, map) -> {
             map.forEach((method, handler) -> {
@@ -79,7 +76,7 @@ public abstract class AbstractSocketServer implements SocketServer {
                     try {
                         method.invoke(listener, message);
                     } catch (IllegalAccessException | InvocationTargetException e) {
-                        SocketAPI.LOGGER.trace("invoke method with parameter: " + message, e.getCause());
+                        SocketAPI.LOGGER.error("invoke method with parameter: " + message, e.getCause());
                     }
                 }
             });

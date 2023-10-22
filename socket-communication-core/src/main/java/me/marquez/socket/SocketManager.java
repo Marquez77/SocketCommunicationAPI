@@ -12,6 +12,7 @@ public class SocketManager {
         SocketAPI.register(ServerProtocol.UDP, new UDPSocketFactory());
 
         SocketAPI.setCreateFunction(PacketSendImpl::new);
+
     }
 
 }

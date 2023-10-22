@@ -2,7 +2,6 @@ package me.marquez.socket.udp;
 
 import lombok.AllArgsConstructor;
 import me.marquez.socket.AbstractSocketServer;
-import me.marquez.socket.SocketAPI;
 import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.packet.entity.PacketResponse;
 import me.marquez.socket.packet.entity.PacketSend;
@@ -110,14 +109,14 @@ public class UDPEchoServer extends AbstractSocketServer {
                 if(e.getMessage().contains("socket closed"))
                     info("socket closed");
                 else
-                    SocketAPI.LOGGER.trace("", e);
+                    error(e);
             }
         }
         if(!Thread.currentThread().isInterrupted()) {
             try {
                 open();
             } catch (IOException e) {
-                SocketAPI.LOGGER.trace("", e);
+                error(e);
             }
         }
     }
@@ -226,7 +225,7 @@ public class UDPEchoServer extends AbstractSocketServer {
                 try {
                     responseData(id, data, address, port, !bigDataStart);
                 }catch(Exception e) {
-                    e.printStackTrace();
+                    error(e);
                 }
             }
         }
@@ -302,7 +301,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             if(future != null)
                 future.completeExceptionally(e);
             else
-                trace(e);
+                error(e);
         }
     }
 
