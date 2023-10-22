@@ -1,7 +1,7 @@
 package me.marquez.socket;
 
 import me.marquez.socket.data.ServerProtocol;
-import me.marquez.socket.packet.entity.impl.PacketSendImpl;
+import me.marquez.socket.packet.entity.PacketSendImpl;
 import me.marquez.socket.tcp.TCPSocketFactory;
 import me.marquez.socket.udp.UDPSocketFactory;
 

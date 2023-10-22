@@ -3,8 +3,6 @@ package me.marquez.socket.tcp;
 import me.marquez.socket.AbstractSocketServer;
 import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.packet.entity.PacketSend;
-import me.marquez.socket.packet.entity.impl.PacketReceiveImpl;
-import me.marquez.socket.packet.entity.impl.PacketSendImpl;
 
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;

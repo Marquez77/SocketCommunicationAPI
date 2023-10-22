@@ -1,7 +1,5 @@
-package me.marquez.socket.packet.entity.impl;
+package me.marquez.socket.packet.entity;
 
-import me.marquez.socket.packet.entity.AbstractPacketData;
-import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.utils.SerializeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -169,5 +167,12 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
             packet.data.add(SerializeUtil.decode(s));
         }
         return packet;
+    }
+
+    @Override
+    public PacketSend toSendPacket() {
+        PacketSendImpl send = new PacketSendImpl(identifiers);
+        send.data.addAll(this.data);
+        return send;
     }
 }

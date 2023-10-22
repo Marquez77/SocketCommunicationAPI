@@ -1,4 +1,4 @@
-package me.marquez.socket.packet.entity.impl;
+package me.marquez.socket.packet.entity;
 
 import me.marquez.socket.packet.entity.AbstractPacketData;
 import me.marquez.socket.packet.entity.PacketSend;

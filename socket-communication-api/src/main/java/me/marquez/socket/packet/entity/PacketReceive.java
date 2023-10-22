@@ -6,4 +6,10 @@ public interface PacketReceive extends ReadablePacket, Cloneable {
      * @return copied packet instance
      */
     PacketReceive clonePacket();
+
+    /**
+     * Convert to send packet
+     * @return send packet instance
+     */
+    PacketSend toSendPacket();
 }
