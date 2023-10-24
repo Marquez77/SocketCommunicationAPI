@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import java.util.function.Function;
 
 public class PacketSendImpl extends AbstractPacketData implements PacketSend {
 
@@ -25,7 +26,7 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
         return this;
     }
 
-    private void append(Object data) {
+    private void append(Function<Object, byte[]> serializeFunction, Object data) {
         if(data instanceof Byte b) {
             append((byte)b);
         }else if(data instanceof Boolean b) {
@@ -51,14 +52,21 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
         }else if(data instanceof UUID uuid) {
             append(uuid);
         }else {
-            append(SerializeUtil.objectToByteArray(data));
+            append(serializeFunction.apply(data));
         }
     }
 
     @Override
     public WritablePacket append(Object... data) {
         for (Object datum : data)
-            append(datum);
+            append(SerializeUtil::objectToByteArray, datum);
+        return this;
+    }
+
+    @Override
+    public WritablePacket append(Function<Object, byte[]> serializeFunction, Object... data) {
+        for (Object datum : data)
+            append(serializeFunction, datum);
         return this;
     }
 

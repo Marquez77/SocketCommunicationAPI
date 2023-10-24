@@ -4,10 +4,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.UUID;
+import java.util.function.Function;
 
 public interface WritablePacket {
     WritablePacket setIdentifier(String... identifiers);
     WritablePacket append(Object... data);
+    WritablePacket append(Function<Object, byte[]> serializeFunction, Object... data);
     WritablePacket append(byte b);
     WritablePacket append(byte[] bytes);
     WritablePacket append(boolean b);
