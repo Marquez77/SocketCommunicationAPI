@@ -1,17 +1,10 @@
 package me.marquez.socket.packet.entity;
 
-import me.marquez.socket.packet.entity.AbstractPacketData;
-import me.marquez.socket.packet.entity.PacketSend;
-import me.marquez.socket.packet.entity.WritablePacket;
 import me.marquez.socket.utils.SerializeUtil;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.UUID;
 
 public class PacketSendImpl extends AbstractPacketData implements PacketSend {
@@ -33,7 +26,33 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
     }
 
     private void append(Object data) {
-        append(SerializeUtil.objectToByteArray(data));
+        if(data instanceof Byte b) {
+            append((byte)b);
+        }else if(data instanceof Boolean b) {
+            append((boolean)b);
+        }else if(data instanceof Character c) {
+            append((char)c);
+        }else if(data instanceof Short s) {
+            append((short)s);
+        }else if(data instanceof Integer i) {
+            append((int)i);
+        }else if(data instanceof Long l) {
+            append((long)l);
+        }else if(data instanceof Float f) {
+            append((float)f);
+        }else if(data instanceof Double d) {
+            append((double)d);
+        }else if(data instanceof String str) {
+            append(str);
+        }else if(data instanceof BigInteger bi) {
+            append(bi);
+        }else if(data instanceof BigDecimal bd) {
+            append(bd);
+        }else if(data instanceof UUID uuid) {
+            append(uuid);
+        }else {
+            append(SerializeUtil.objectToByteArray(data));
+        }
     }
 
     @Override
