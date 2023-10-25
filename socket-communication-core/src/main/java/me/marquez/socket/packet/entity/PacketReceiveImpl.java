@@ -40,6 +40,37 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
     }
 
     @Override
+    public @Nullable Object nextKnownObject(Class<?> clazz) throws IOException, ClassNotFoundException {
+        if(clazz.equals(Byte.class)) {
+            return nextByte();
+        }else if(clazz.equals(Boolean.class)) {
+            return nextBoolean();
+        }else if(clazz.equals(Character.class)) {
+            return nextChar();
+        }else if(clazz.equals(Short.class)) {
+            return nextShort();
+        }else if(clazz.equals(Integer.class)) {
+            return nextInt();
+        }else if(clazz.equals(Long.class)) {
+            return nextLong();
+        }else if(clazz.equals(Float.class)) {
+            return nextFloat();
+        }else if(clazz.equals(Double.class)) {
+            return nextDouble();
+        }else if(clazz.equals(String.class)) {
+            return nextString();
+        }else if(clazz.equals(BigInteger.class)) {
+            return nextBigInteger();
+        }else if(clazz.equals(BigDecimal.class)) {
+            return nextBigDecimal();
+        }else if(clazz.equals(UUID.class)) {
+            return nextUUID();
+        }else {
+            return nextObject(clazz);
+        }
+    }
+
+    @Override
     public boolean hasNext() {
         if(iter == null) iter = data.listIterator();
         return iter.hasNext();

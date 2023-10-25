@@ -29,4 +29,5 @@ public interface ReadablePacket {
     @Nullable UUID nextUUID();
     @Nullable Object nextObject() throws IOException, ClassNotFoundException;
     @Nullable <T> T nextObject(Class<? extends T> clazz) throws IOException, ClassNotFoundException, ClassCastException;
+    @Nullable Object nextKnownObject(Class<?> clazz) throws IOException, ClassNotFoundException;
 }
