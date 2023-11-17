@@ -39,8 +39,9 @@ public abstract class AbstractSocketServer implements SocketServer {
     }
 
     protected void info(String s, Object... o) {
-        if(debug)
+        if(debug) {
             SocketAPI.LOGGER.info(s, o);
+        }
     }
 
     protected void error(Throwable e) {

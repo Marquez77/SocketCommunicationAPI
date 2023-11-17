@@ -9,8 +9,11 @@ import me.marquez.socket.packet.entity.PacketReceiveImpl;
 import me.marquez.socket.packet.entity.PacketResponseImpl;
 import me.marquez.socket.udp.exception.DataLossException;
 import me.marquez.socket.udp.exception.NoEchoDataException;
+import me.marquez.socket.utils.CompressUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -18,6 +21,10 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class UDPEchoServer extends AbstractSocketServer {
 
@@ -104,6 +111,8 @@ public class UDPEchoServer extends AbstractSocketServer {
                 byte[] buffer = new byte[serverSocket.getReceiveBufferSize()];
                 final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
                 serverSocket.receive(receiveData);
+                byte[] decompressed = CompressUtil.decompress(receiveData.getData());
+                receiveData.setData(decompressed);
                 receiveThreadPool.submit(() -> onReceiveData(receiveData));
             }catch(IOException e) {
                 if(e.getMessage().contains("socket closed"))
@@ -293,9 +302,10 @@ public class UDPEchoServer extends AbstractSocketServer {
     }
 
     private void sendDataPacket(String header, long finalId, String data, SocketAddress host, @Nullable CompletableFuture<?> future, String responseHeader) {
-        byte[] buffer = (header + finalId + ";" + responseHeader + data).getBytes(StandardCharsets.UTF_8);
-        DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
         try {
+            byte[] buffer = (header + finalId + ";" + responseHeader + data).getBytes(StandardCharsets.UTF_8);
+            buffer = CompressUtil.compress(buffer);
+            DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
             serverSocket.send(sendData);
         } catch (Exception e) {
             if(future != null)
