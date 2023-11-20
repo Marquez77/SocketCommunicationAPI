@@ -99,7 +99,9 @@ public class UDPEchoServer extends AbstractSocketServer {
                     //            logger.info("Compare data:\t \n\t\tSent:\t{}1\n\t\tReceive:\t{}1\nequals: {}", data, result, data.equals(result));
                     //            if(throwable == null && data.equals(result)) future.complete(null); //보낸 데이터와 받은 데이터가 일치 할 때
                     if(throwable == null) future.complete(null);
-                    else future.completeExceptionally(new NoEchoDataException());
+                    else {
+                        future.completeExceptionally(new NoEchoDataException(throwable));
+                    }
                 });
         return future;
     }
@@ -341,12 +343,12 @@ public class UDPEchoServer extends AbstractSocketServer {
         public boolean add(int i, String data) {
             this.data[i] = data;
             currentLength += data.length();
-            timeout += System.currentTimeMillis()+10L;
+            timeout = System.currentTimeMillis()+1000L;
             return currentLength == targetLength;
         }
 
         public void checkReceiving() {
-            timeout = System.currentTimeMillis()+100L;
+            timeout = System.currentTimeMillis()+1000L;
             while(System.currentTimeMillis() < timeout);
             if(currentLength != targetLength) timeout();
         }
