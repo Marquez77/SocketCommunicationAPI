@@ -1,5 +1,24 @@
 # SocketCommunicationAPI
 
+## How to SETUP
+### Maven
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>com.github.Marquez77</groupId>
+        <artifactId>SocketCommunicationAPI</artifactId>
+        <version>master</version>
+    </dependency>
+</dependencies>
+```
+
 ## UDP Communication
 
 ### Example [UDPEchoServer](src/main/java/me/marquez/socket/udp/UDPEchoServer.java)
