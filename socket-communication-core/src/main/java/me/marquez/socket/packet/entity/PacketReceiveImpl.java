@@ -195,7 +195,8 @@ public class PacketReceiveImpl extends AbstractPacketData implements PacketRecei
             identifiers = new String[0];
         PacketReceiveImpl packet = new PacketReceiveImpl(identifiers);
         for (String s : split[1].split(String.valueOf(ETB))) {
-            packet.data.add(SerializeUtil.decode(s));
+            if(!s.isEmpty())
+                packet.data.add(SerializeUtil.decode(s));
         }
         return packet;
     }
