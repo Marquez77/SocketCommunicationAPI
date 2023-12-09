@@ -19,9 +19,9 @@ public class NewStructureTest {
         if(udpFactory == null)
             return;
 
-        SocketServer server1 = udpFactory.createOrGet("localhost", 8281, true);
+        SocketServer server1 = udpFactory.createOrGet("localhost", 8081, true);
 
-        SocketServer server2 = udpFactory.createOrGet("localhost", 8282, true);
+        SocketServer server2 = udpFactory.createOrGet("localhost", 8082, true);
 
         server1.open();
         server2.open();
@@ -34,6 +34,8 @@ public class NewStructureTest {
                 System.out.println("r2: " + message.received_packet().nextInt());
                 System.out.println("r3: " + message.received_packet().nextUUID());
                 System.out.println("r4: " + message.received_packet().nextObject(User.class));
+                System.out.println("r5: " + message.received_packet().nextString());
+                System.out.println("r6: " + message.received_packet().nextString());
                 message.response_packet().append("RESPONSE");
             }
         });
@@ -42,7 +44,9 @@ public class NewStructureTest {
         send.append("TEST한글")
             .append(1234)
             .append(UUID.randomUUID())
-            .append(new User(UUID.randomUUID(), "marquez", 100));
+            .append(new User(UUID.randomUUID(), "marquez", 100))
+            .append("QWER")
+            .append("ASDF");
         System.out.println("send: " + send.toString().isEmpty() + " " + Arrays.toString(send.toString().getBytes()));
         server1.sendDataAndReceive(server2.getHost(), send)
                 .whenComplete((packetReceive, throwable) -> {
@@ -50,12 +54,12 @@ public class NewStructureTest {
                     System.out.println("ar1: " + packetReceive.nextString());
                 });
 
-        SocketServer server3 = udpFactory.createOrGet("localhost", 8281, true);
-        if(server3.isOpen()) {
-            System.out.println("already open");
-        }else {
-            server3.open();
-        }
+//        SocketServer server3 = udpFactory.createOrGet("localhost", 881, true);
+//        if(server3.isOpen()) {
+//            System.out.println("already open");
+//        }else {
+//            server3.open();
+//        }
     }
 
     public static record User(UUID uuid, String name, int level) implements Serializable {}
