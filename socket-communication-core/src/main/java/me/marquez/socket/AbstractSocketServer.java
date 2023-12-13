@@ -67,11 +67,26 @@ public abstract class AbstractSocketServer implements SocketServer {
         listeners.put(listener, map);
     }
 
+    private boolean checkIdentifiers(String[] first, String[] second) {
+        if(first.length != second.length)
+            return false;
+        if(first == second)
+            return true;
+        for(int i = 0; i < first.length; i++) {
+            if(first[i].equals(second[i]))
+                continue;
+            if(first[i].equals("*") || second[i].equals("*"))
+                continue;
+            return false;
+        }
+        return true;
+    }
+
     protected void onReceive(SocketAddress socketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
         String[] identifiers = receive_packet.getIdentifiers();
         listeners.forEach((listener, map) -> {
             map.forEach((method, handler) -> {
-                if(Arrays.compare(identifiers, handler.identifiers()) == 0) {
+                if(checkIdentifiers(identifiers, handler.identifiers())) {
                     SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
                     PacketMessage message = new PacketMessage(this, socketAddress, receive_packet.clonePacket(), response_packet);
                     try {
