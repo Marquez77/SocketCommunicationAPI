@@ -30,6 +30,9 @@ public interface WritablePacket {
     default WritablePacket appendBytes(Object bytes) {
         return append((byte[])bytes);
     }
+    default WritablePacket appendBoolean(Object b) {
+        return append((boolean)b);
+    }
     default WritablePacket appendChar(Object c) {
         return append((char)c);
     }
