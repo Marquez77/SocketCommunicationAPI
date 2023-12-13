@@ -27,7 +27,7 @@ public class NewStructureTest {
         server2.open();
 
         server2.registerListener(new PacketListener() {
-            @PacketHandler
+            @PacketHandler(identifiers = {"TEST", "*"})
             public void onReceivePacket(PacketMessage message) throws IOException, ClassNotFoundException {
                 System.out.println("Receive: " + message.received_packet());
                 System.out.println("r1: " + message.received_packet().nextString());
@@ -40,7 +40,7 @@ public class NewStructureTest {
             }
         });
 
-        var send = SocketAPI.createPacketSend();
+        var send = SocketAPI.createPacketSend("TEST", "HI");
         send.append("TEST한글")
             .append(1234)
             .append(UUID.randomUUID())
