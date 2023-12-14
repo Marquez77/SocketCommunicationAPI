@@ -15,10 +15,13 @@ public abstract class AbstractSocketFactory implements SocketFactory {
 
     private SocketAddress getSocketAddress(String host, int port) throws UnknownHostException, SocketException {
         InetAddress address = host == null ? InetAddress.getLocalHost() : InetAddress.getByName(host);
-        NetworkInterface ethernet = NetworkInterface.getByInetAddress(address);
-        if(ethernet == null)
-            throw new IllegalArgumentException("invalid host: " + host);
-        InetAddress hostAddress = ethernet.getInetAddresses().nextElement();
+        InetAddress hostAddress = address;
+        if(!address.isAnyLocalAddress()) {
+            NetworkInterface ethernet = NetworkInterface.getByInetAddress(address);
+            if (ethernet == null)
+                throw new IllegalArgumentException("invalid host: " + host);
+            hostAddress = ethernet.getInetAddresses().nextElement();
+        }
         return new InetSocketAddress(hostAddress, port);
     }
 
