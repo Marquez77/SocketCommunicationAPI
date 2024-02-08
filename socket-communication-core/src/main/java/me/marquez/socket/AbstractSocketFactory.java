@@ -38,13 +38,16 @@ public abstract class AbstractSocketFactory implements SocketFactory {
     }
 
     public @NotNull SocketServer createOrGet(SocketAddress host, boolean debug) throws UnknownHostException, SocketException {
-        SocketServer result = serverMap.computeIfAbsent(host, key -> {
-            try {
-                return create(host, debug);
-            }catch(UnknownHostException | SocketException e) {
-                SocketAPI.LOGGER.error("host: " + host, e);
-                return null;
+        SocketServer result = serverMap.compute(host, (key, value) -> {
+            if(value == null || !value.isOpen()) {
+                try {
+                    return create(host, debug);
+                } catch (UnknownHostException | SocketException e) {
+                    SocketAPI.LOGGER.error("host: " + host, e);
+                    return null;
+                }
             }
+            return value;
         });
         if(result == null)
             throw new SocketException();

@@ -71,6 +71,8 @@ public class UDPEchoServer extends AbstractSocketServer {
         if(serverSocket.isClosed())
             return;
         serverSocket.close();
+        serverSocket = null;
+
         mainThreadPool.shutdownNow();
         receiveThreadPool.shutdownNow();
         sendThreadPool.shutdownNow();
@@ -116,9 +118,9 @@ public class UDPEchoServer extends AbstractSocketServer {
                 byte[] decompressed = CompressUtil.decompress(receiveData.getData());
                 receiveData.setData(decompressed);
                 receiveThreadPool.submit(() -> onReceiveData(receiveData));
-            }catch(IOException e) {
-                if(e.getMessage().contains("socket closed"))
-                    info("socket closed");
+            }catch(Exception e) {
+                if(e.getMessage().contains("Socket closed"))
+                    info("Socket closed");
                 else
                     error(e);
             }
