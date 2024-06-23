@@ -87,7 +87,7 @@ public abstract class AbstractSocketServer implements SocketServer {
         listeners.forEach((listener, map) -> {
             map.forEach((method, handler) -> {
                 if(checkIdentifiers(identifiers, handler.identifiers())) {
-                    SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
+//                    SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
                     PacketMessage message = new PacketMessage(this, socketAddress, receive_packet.clonePacket(), response_packet);
                     try {
                         method.invoke(listener, message);

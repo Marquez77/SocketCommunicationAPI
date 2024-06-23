@@ -49,7 +49,8 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor();
     private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
-    private final ExecutorService sendThreadPool = Executors.newCachedThreadPool();
+    private final ExecutorService sendPublicThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final ExecutorService sendThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*15);
     private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
@@ -81,15 +82,17 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     @Override
     public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
-        long id = makeId();
-        while(echoMap.containsKey(id)) id = makeId();
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
-        echoMap.put(id, new SentData(data, future, resend));
-        InetSocketAddress address = (InetSocketAddress)host;
-        String str = data.toString();
-        info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
-        final long finalId = id;
-        sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
+        sendPublicThreadPool.submit(() -> {
+            long id = makeId();
+            while(echoMap.containsKey(id)) id = makeId();
+            echoMap.put(id, new SentData(data, future, resend));
+            InetSocketAddress address = (InetSocketAddress)host;
+            String str = data.toString();
+            info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
+            final long finalId = id;
+            sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
+        });
         return future;
     }
 
