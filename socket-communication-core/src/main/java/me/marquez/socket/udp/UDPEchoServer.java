@@ -7,6 +7,7 @@ import me.marquez.socket.packet.entity.PacketResponse;
 import me.marquez.socket.packet.entity.PacketSend;
 import me.marquez.socket.packet.entity.PacketReceiveImpl;
 import me.marquez.socket.packet.entity.PacketResponseImpl;
+import me.marquez.socket.queue.ExecutionQueuePool;
 import me.marquez.socket.udp.exception.DataLossException;
 import me.marquez.socket.udp.exception.NoEchoDataException;
 import me.marquez.socket.utils.CompressUtil;
@@ -49,7 +50,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor();
     private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
-    private final ExecutorService sendPublicThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final ExecutionQueuePool sendPublicThreadPool = new ExecutionQueuePool(10);
     private final ExecutorService sendThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*15);
     private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
 
@@ -92,6 +93,8 @@ public class UDPEchoServer extends AbstractSocketServer {
             info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
             final long finalId = id;
             sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
+
+            future.join();
         });
         return future;
     }
