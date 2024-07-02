@@ -1,5 +1,7 @@
 package me.marquez.socket.queue;
 
+import java.util.concurrent.CompletableFuture;
+
 public class ExecutionQueuePool {
 
     private final ExecutionQueue[] queues;
@@ -11,7 +13,7 @@ public class ExecutionQueuePool {
         }
     }
 
-    private ExecutionQueue getBestQueue() {
+    private synchronized ExecutionQueue getBestQueue() {
         ExecutionQueue bestQueue = queues[0];
         for (ExecutionQueue queue : queues) {
             if (queue.size() < bestQueue.size()) {
@@ -21,8 +23,9 @@ public class ExecutionQueuePool {
         return bestQueue;
     }
 
-    public void submit(Runnable runnable) {
-        getBestQueue().add(runnable);
+    public synchronized void submit(Runnable runnable, CompletableFuture<?> future) {
+//        System.out.println("submit: " + getBestQueue().size());
+        getBestQueue().add(runnable, future);
     }
 
     public int size() {

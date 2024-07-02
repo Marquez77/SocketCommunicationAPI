@@ -29,7 +29,7 @@ public class TCPServer extends AbstractSocketServer {
     }
 
     @Override
-    public CompletableFuture<Void> sendDataFuture(SocketAddress address, PacketSend send_packet) {
+    public CompletableFuture<Boolean> sendDataFuture(SocketAddress address, PacketSend send_packet) {
         return null;
     }
 

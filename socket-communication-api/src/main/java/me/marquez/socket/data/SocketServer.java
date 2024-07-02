@@ -55,7 +55,7 @@ public interface SocketServer {
      * @param send_packet packet body
      * @return the future will complete when receive response from target host.
      */
-    CompletableFuture<Void> sendDataFuture(SocketAddress address, PacketSend send_packet);
+    CompletableFuture<Boolean> sendDataFuture(SocketAddress address, PacketSend send_packet);
 
     /**
      * Send packet to other socket server and wait until receive response from target host.
@@ -63,7 +63,11 @@ public interface SocketServer {
      * @param send_packet packet body
      */
     default void sendData(SocketAddress address, PacketSend send_packet) {
-        sendDataFuture(address, send_packet).join();
+        try {
+            sendDataFuture(address, send_packet).join();
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**

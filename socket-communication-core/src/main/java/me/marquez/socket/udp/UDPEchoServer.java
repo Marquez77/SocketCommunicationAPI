@@ -84,33 +84,53 @@ public class UDPEchoServer extends AbstractSocketServer {
     @Override
     public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
+        CompletableFuture<PacketReceive> internalFuture = new CompletableFuture<>();
         sendPublicThreadPool.submit(() -> {
             long id = makeId();
             while(echoMap.containsKey(id)) id = makeId();
-            echoMap.put(id, new SentData(data, future, resend));
+            echoMap.put(id, new SentData(data, internalFuture, resend));
             InetSocketAddress address = (InetSocketAddress)host;
             String str = data.toString();
             info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
             final long finalId = id;
-            sendThreadPool.submit(() -> sendData(data, finalId, host, future, ""));
+            sendThreadPool.submit(() -> sendData(data, finalId, host, internalFuture, ""));
 
-            future.join();
+            try {
+                future.complete(internalFuture.join());
+//                System.out.println("Complete");
+            }catch(Exception e) {
+//                System.out.println("Exception " + e);
+                future.completeExceptionally(e);
+            }
+//            future.complete(internalFuture.join());
+        }, future);
+        future.whenComplete((result, throwable) -> {
+            if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally())
+                internalFuture.completeExceptionally(new TimeoutException());
         });
         return future;
     }
 
     @Override
-    public CompletableFuture<Void> sendDataFuture(SocketAddress host, final PacketSend data) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        sendDataAndReceive(host, data).orTimeout(TIMEOUT, TimeUnit.SECONDS)
+    public CompletableFuture<Boolean> sendDataFuture(SocketAddress host, final PacketSend data) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        var internalFuture = sendDataAndReceive(host, data);
+        internalFuture.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS)
                 .whenCompleteAsync((result, throwable) -> {
                     //            logger.info("Compare data:\t \n\t\tSent:\t{}1\n\t\tReceive:\t{}1\nequals: {}", data, result, data.equals(result));
                     //            if(throwable == null && data.equals(result)) future.complete(null); //보낸 데이터와 받은 데이터가 일치 할 때
-                    if(throwable == null) future.complete(null);
-                    else {
+                    if(throwable == null) {
+//                        System.out.println("Complete result=" + result);
+                        future.complete(result != null);
+                    } else {
+//                        System.out.println("Exception " + throwable);
                         future.completeExceptionally(new NoEchoDataException(throwable));
                     }
                 });
+        future.whenComplete((result, throwable) -> {
+            if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally())
+                internalFuture.completeExceptionally(new TimeoutException());
+        });
         return future;
     }
 

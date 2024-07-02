@@ -6,6 +6,7 @@ import me.marquez.socket.packet.PacketListener;
 import me.marquez.socket.packet.PacketMessage;
 
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class StressTest {
@@ -22,9 +23,10 @@ public class StressTest {
         var listener = new PacketListener() {
             AtomicInteger i = new AtomicInteger(0);
             @PacketHandler(identifiers = "*")
-            public void onTest(PacketMessage message) {
+            public void onTest(PacketMessage message) throws InterruptedException {
                 i.incrementAndGet();
 //                System.out.println(i.incrementAndGet());
+                Thread.sleep(1000);
             }
         };
         client.registerListener(listener);
@@ -32,28 +34,37 @@ public class StressTest {
         var send = SocketAPI.createPacketSend("test");
 
         long start = System.currentTimeMillis();
-        for(int i = 0; i < 30000; i++) {
-            server.sendDataAndReceive(client.getHost(), send);
+        for(int i = 0; i < 30; i++) {
+            server.sendDataFuture(client.getHost(), send)
+                    .completeOnTimeout(false, 100, TimeUnit.MILLISECONDS)
+                    .whenComplete((result, throwable) -> {
+                    }).join();
         }
         System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
 
-        start = System.currentTimeMillis();
-        for(int i = 0; i < 30000; i++) {
-            server.sendDataAndReceive(client.getHost(), send, true);
-        }
-        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
-
-        start = System.currentTimeMillis();
-        for(int i = 0; i < 30000; i++) {
-            server.sendDataFuture(client.getHost(), send);
-        }
-        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
-
-        start = System.currentTimeMillis();
-        for(int i = 0; i < 30000; i++) {
-            server.sendData(client.getHost(), send);
-        }
-        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
+//        start = System.currentTimeMillis();
+//        for(int i = 0; i < 30000; i++) {
+//            server.sendDataAndReceive(client.getHost(), send, true);
+//        }
+//        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
+//
+//        start = System.currentTimeMillis();
+//        for(int i = 0; i < 30000; i++) {
+//            server.sendDataFuture(client.getHost(), send);
+//        }
+//        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
+//
+//        start = System.currentTimeMillis();
+//        for(int i = 0; i < 30000; i++) {
+//            server.sendDataFuture(client.getHost(), send).completeOnTimeout(false, 1000, TimeUnit.MILLISECONDS)
+//                    .whenComplete((unused, throwable) -> {
+////                        if(unused)
+////                            System.out.println("Success");
+////                        else
+////                            System.out.println("Failed");
+//                    });
+//        }
+//        System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
 
         Thread.sleep(10000);
         System.out.println(listener.i.get());
