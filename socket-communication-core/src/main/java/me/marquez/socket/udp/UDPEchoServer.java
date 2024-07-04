@@ -35,7 +35,17 @@ public class UDPEchoServer extends AbstractSocketServer {
     private DatagramSocket serverSocket;
 
     protected UDPEchoServer(SocketAddress host, boolean debug) {
+        this(host, debug, 10);
+    }
+
+    protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize) {
         super(host, debug);
+        sendPublicThreadPool = new ExecutionQueuePool(threadPoolSize);
+    }
+
+    private void printThreadPoolStatus() {
+        info("[Sending thread pool] idle queues: {}/{}", sendPublicThreadPool.getEmptyQueues(), sendPublicThreadPool.size());
+        info("[Sending thread pool] └ Queue sizes: {}", Arrays.toString(sendPublicThreadPool.getQueueSizes()));
     }
 
     private long makeId() {
@@ -50,7 +60,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor();
     private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
-    private final ExecutionQueuePool sendPublicThreadPool = new ExecutionQueuePool(10);
+    private final ExecutionQueuePool sendPublicThreadPool;
     private final ExecutorService sendThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*15);
     private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
 
@@ -83,6 +93,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     @Override
     public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
+        printThreadPoolStatus();
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
         CompletableFuture<PacketReceive> internalFuture = new CompletableFuture<>();
         sendPublicThreadPool.submit(() -> {

@@ -8,7 +8,7 @@ import java.net.SocketAddress;
 
 public class TCPSocketFactory extends AbstractSocketFactory {
     @Override
-    public @NotNull SocketServer create(SocketAddress host, boolean debug) {
+    public @NotNull SocketServer create(SocketAddress host, boolean debug, int threadPoolSize) {
         return new TCPServer(host, debug);
     }
 }

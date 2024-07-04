@@ -1,5 +1,6 @@
 package me.marquez.socket.queue;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 public class ExecutionQueuePool {
@@ -21,6 +22,14 @@ public class ExecutionQueuePool {
             }
         }
         return bestQueue;
+    }
+
+    public synchronized int getEmptyQueues() {
+        return (int)Arrays.stream(queues).filter(queue -> queue.size() == 0).count();
+    }
+
+    public synchronized int[] getQueueSizes() {
+        return Arrays.stream(queues).mapToInt(ExecutionQueue::size).toArray();
     }
 
     public synchronized void submit(Runnable runnable, CompletableFuture<?> future) {

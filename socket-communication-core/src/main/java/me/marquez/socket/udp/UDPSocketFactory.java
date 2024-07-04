@@ -9,7 +9,7 @@ import java.net.SocketAddress;
 public class UDPSocketFactory extends AbstractSocketFactory {
 
     @Override
-    public @NotNull SocketServer create(SocketAddress host, boolean debug) {
-        return new UDPEchoServer(host, debug);
+    public @NotNull SocketServer create(SocketAddress host, boolean debug, int threadPoolSize) {
+        return new UDPEchoServer(host, debug, threadPoolSize);
     }
 }
