@@ -106,19 +106,23 @@ public class UDPEchoServer extends AbstractSocketServer {
             final long finalId = id;
             sendThreadPool.submit(() -> sendData(data, finalId, host, internalFuture, ""));
 
+            future.whenComplete((result, throwable) -> {
+                if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally()) {
+                    internalFuture.completeExceptionally(new TimeoutException());
+                    echoMap.remove(finalId);
+                }
+            });
+
             try {
                 future.complete(internalFuture.join());
 //                System.out.println("Complete");
             }catch(Exception e) {
 //                System.out.println("Exception " + e);
                 future.completeExceptionally(e);
+                echoMap.remove(finalId);
             }
 //            future.complete(internalFuture.join());
         }, future);
-        future.whenComplete((result, throwable) -> {
-            if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally())
-                internalFuture.completeExceptionally(new TimeoutException());
-        });
         return future;
     }
 
