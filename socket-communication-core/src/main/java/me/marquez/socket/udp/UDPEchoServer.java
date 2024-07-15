@@ -114,7 +114,10 @@ public class UDPEchoServer extends AbstractSocketServer {
             });
 
             try {
-                future.complete(internalFuture.join());
+                var result = internalFuture.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS).join();
+                future.complete(result);
+                if(result == null)
+                    echoMap.remove(finalId);
 //                System.out.println("Complete");
             }catch(Exception e) {
 //                System.out.println("Exception " + e);
