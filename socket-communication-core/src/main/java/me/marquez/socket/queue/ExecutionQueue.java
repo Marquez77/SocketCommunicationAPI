@@ -1,14 +1,16 @@
 package me.marquez.socket.queue;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ExecutionQueue {
 
@@ -18,9 +20,16 @@ public class ExecutionQueue {
         CompletableFuture<?> future;
     }
 
-    private final ExecutorService thread = Executors.newSingleThreadExecutor();
+    private final ExecutorService thread;
     private final Queue<Execution> queue = new LinkedList<>();
     private volatile boolean running = false;
+    @Getter
+    @Setter
+    private volatile SocketAddress currentTarget;
+
+    public ExecutionQueue(String prefix) {
+        this.thread = Executors.newSingleThreadExecutor(new SocketThreadFactory(prefix));
+    }
 
     public synchronized void add(@NotNull Runnable runnable, CompletableFuture<?> future) {
         // System.out.println("add: " + this);
@@ -49,6 +58,7 @@ public class ExecutionQueue {
                     // System.out.println("Polled: " + this + " " + queue.size() + " " + running);
                     if (queue.isEmpty()) {
                         running = false;
+                        setCurrentTarget(null);
                         return;
                     }
                 }

@@ -14,7 +14,7 @@ public class StressTest {
     public static void main(String[] args) throws Exception {
         SocketManager.initialize();
 
-        var server = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8381);
+        var server = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8381, true, 10, 5);
         var client = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8382);
 
         server.open();
@@ -26,7 +26,7 @@ public class StressTest {
             public void onTest(PacketMessage message) throws InterruptedException {
                 i.incrementAndGet();
 //                System.out.println(i.incrementAndGet());
-                Thread.sleep(1000);
+//                Thread.sleep(1000);
             }
         };
         client.registerListener(listener);
@@ -38,7 +38,7 @@ public class StressTest {
             server.sendDataFuture(client.getHost(), send)
                     .completeOnTimeout(false, 100, TimeUnit.MILLISECONDS)
                     .whenComplete((result, throwable) -> {
-                    }).join();
+                    });
         }
         System.out.println("Main thread is running " + (System.currentTimeMillis() - start) + "ms");
 

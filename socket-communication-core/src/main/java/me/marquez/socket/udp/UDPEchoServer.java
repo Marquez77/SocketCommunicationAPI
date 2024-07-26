@@ -2,19 +2,14 @@ package me.marquez.socket.udp;
 
 import lombok.AllArgsConstructor;
 import me.marquez.socket.AbstractSocketServer;
-import me.marquez.socket.packet.entity.PacketReceive;
-import me.marquez.socket.packet.entity.PacketResponse;
-import me.marquez.socket.packet.entity.PacketSend;
-import me.marquez.socket.packet.entity.PacketReceiveImpl;
-import me.marquez.socket.packet.entity.PacketResponseImpl;
+import me.marquez.socket.packet.entity.*;
 import me.marquez.socket.queue.ExecutionQueuePool;
+import me.marquez.socket.queue.SocketThreadFactory;
 import me.marquez.socket.udp.exception.DataLossException;
 import me.marquez.socket.udp.exception.NoEchoDataException;
 import me.marquez.socket.utils.CompressUtil;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -22,10 +17,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 public class UDPEchoServer extends AbstractSocketServer {
 
@@ -35,12 +26,12 @@ public class UDPEchoServer extends AbstractSocketServer {
     private DatagramSocket serverSocket;
 
     protected UDPEchoServer(SocketAddress host, boolean debug) {
-        this(host, debug, 10);
+        this(host, debug, 10, 10);
     }
 
-    protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize) {
+    protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) {
         super(host, debug);
-        sendPublicThreadPool = new ExecutionQueuePool(threadPoolSize);
+        sendPublicThreadPool = new ExecutionQueuePool("Send", threadPoolSize, maximumQueuePerTarget);
     }
 
     private void printThreadPoolStatus() {
@@ -58,11 +49,11 @@ public class UDPEchoServer extends AbstractSocketServer {
     private final Map<Long, CompletableFuture<Void>> bigDataBeginMap = new ConcurrentHashMap<>();
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
-    private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor();
-    private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool();
+    private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor(); // 메인 소켓 스레드
+    private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Receive"));
     private final ExecutionQueuePool sendPublicThreadPool;
-    private final ExecutorService sendThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*15);
-    private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool();
+    private final ExecutorService sendThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Send"));
+    private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Waiting")); // Bigdata 전용
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
     private static final int MAX_PACKET_SIZE = 65507;
@@ -96,13 +87,13 @@ public class UDPEchoServer extends AbstractSocketServer {
         printThreadPoolStatus();
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
         CompletableFuture<PacketReceive> internalFuture = new CompletableFuture<>();
-        sendPublicThreadPool.submit(() -> {
+        sendPublicThreadPool.submit(host, () -> {
             long id = makeId();
             while(echoMap.containsKey(id)) id = makeId();
             echoMap.put(id, new SentData(data, internalFuture, resend));
             InetSocketAddress address = (InetSocketAddress)host;
             String str = data.toString();
-            info("[CURRENT->{}:{}] Sent data: {}", address.getHostString(), address.getPort(), trim(str));
+            info("[CURRENT->{}:{}] Sent data: [{}] {}", address.getHostString(), address.getPort(), id, trim(str));
             final long finalId = id;
             sendThreadPool.submit(() -> sendData(data, finalId, host, internalFuture, ""));
 
@@ -251,11 +242,14 @@ public class UDPEchoServer extends AbstractSocketServer {
                 return null;
             });
         }else if(echoMap.containsKey(id)) { //이곳에서 보낸 데이터일 경우 Future Complete
-            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, trim(str));
+//            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, trim(str));
             final String[] finalSplit = split;
             final int finalReceivedLength = receivedLength;
             echoMap.computeIfPresent(id,(k, sentData) -> {
                 PacketReceive receive_packet = PacketReceiveImpl.of(finalSplit[1]);
+                long ms = System.currentTimeMillis()-id/10;
+                if(ms < 0) ms = 0;
+                info("[CURRENT->{}:{}->CURRENT] Received echo data: [{}] {} ({}ms)", address.getHostAddress(), port, id, trim(receive_packet.toString()), ms);
                 int sentLength = sentData.data.toString().length();
                 if(finalReceivedLength != sentLength) { //보낸 데이터와 받은 데이터 길이가 다를 경우
                     double loss = 1-(double)finalReceivedLength/sentLength;
@@ -277,7 +271,7 @@ public class UDPEchoServer extends AbstractSocketServer {
                 if (bigDataStart) {
                     data = "[]";
                 } else {
-                    info("[{}:{}->CURRENT] Received data: {}", address.getHostAddress(), port, trim(str));
+                    info("[{}:{}->CURRENT] Received data: [{}] {}", address.getHostAddress(), port, id, trim(str));
                 }
                 try {
                     responseData(id, data, address, port, !bigDataStart);
@@ -295,7 +289,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             PacketReceive receive_packet = PacketReceiveImpl.of(data); //수신 데이터 만들기
             onReceive(host, receive_packet, response_packet);
         }
-        info("[CURRENT->{}:{}] Response data: {}", address.getHostAddress(), port, response_packet);
+        info("[CURRENT->{}:{}] Response data: [{}] {}", address.getHostAddress(), port, id, trim(response_packet.toString()));
         sendData((PacketSend)response_packet, id, host, null, ("l" + data.length() + ";"));
     }
 

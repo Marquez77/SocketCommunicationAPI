@@ -12,11 +12,26 @@ public interface SocketFactory {
      * @param port The server port
      * @param debug whether print debugging
      * @param threadPoolSize The size of thread pool
+     * @param maximumQueuePerTarget The maximum queue per target
      * @return created socket server
      * @throws UnknownHostException The server host is invalid.
      * @throws SocketException if the server host is already bind or else case.
      */
-    @NonNull SocketServer create(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException;
+    @NonNull SocketServer create(String host, int port, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException;
+
+    /**
+     * Create new socket server.
+     * @param host The server hostname
+     * @param port The server port
+     * @param debug whether print debugging
+     * @param threadPoolSize The size of thread pool
+     * @return created socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException if the server host is already bind or else case.
+     */
+    default @NonNull SocketServer create(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException {
+        return create(host, port, debug, threadPoolSize, threadPoolSize);
+    }
 
     /**
      * Create new socket server.
@@ -72,11 +87,26 @@ public interface SocketFactory {
      * @param port The server port
      * @param debug whether print debugging
      * @param threadPoolSize The size of thread pool
+     * @param maximumQueuePerTarget The maximum queue per target
      * @return created socket server or opened socket server
      * @throws UnknownHostException The server host is invalid.
      * @throws SocketException something wrong when create new socket.
      */
-    @NonNull SocketServer createOrGet(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException;
+    @NonNull SocketServer createOrGet(String host, int port, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException;
+
+    /**
+     * Create new socket server, or Get opened socket server from the host if the host is already bound.
+     * @param host The server hostname
+     * @param port The server port
+     * @param debug whether print debugging
+     * @param threadPoolSize The size of thread pool
+     * @return created socket server or opened socket server
+     * @throws UnknownHostException The server host is invalid.
+     * @throws SocketException something wrong when create new socket.
+     */
+    default @NonNull SocketServer createOrGet(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException {
+        return createOrGet(host, port, debug, threadPoolSize, threadPoolSize);
+    }
 
     /**
      * Create new socket server, or Get opened socket server from the host if the host is already bound.

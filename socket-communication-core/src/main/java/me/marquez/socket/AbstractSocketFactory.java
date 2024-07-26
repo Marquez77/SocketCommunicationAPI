@@ -25,23 +25,23 @@ public abstract class AbstractSocketFactory implements SocketFactory {
         return new InetSocketAddress(hostAddress, port);
     }
 
-    protected abstract SocketServer create(SocketAddress host, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException;
+    protected abstract SocketServer create(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException;
 
     @Override
-    public @NotNull SocketServer create(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException {
-        return create(getSocketAddress(host, port), debug, threadPoolSize);
+    public @NotNull SocketServer create(String host, int port, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException {
+        return create(getSocketAddress(host, port), debug, threadPoolSize, maximumQueuePerTarget);
     }
 
     @Override
-    public @NonNull SocketServer createOrGet(String host, int port, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException {
-        return createOrGet(getSocketAddress(host, port), debug, threadPoolSize);
+    public @NonNull SocketServer createOrGet(String host, int port, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException {
+        return createOrGet(getSocketAddress(host, port), debug, threadPoolSize, maximumQueuePerTarget);
     }
 
-    public @NotNull SocketServer createOrGet(SocketAddress host, boolean debug, int threadPoolSize) throws UnknownHostException, SocketException {
+    public @NotNull SocketServer createOrGet(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) throws UnknownHostException, SocketException {
         SocketServer result = serverMap.compute(host, (key, value) -> {
             if(value == null || !value.isOpen()) {
                 try {
-                    return create(host, debug, threadPoolSize);
+                    return create(host, debug, threadPoolSize, maximumQueuePerTarget);
                 } catch (UnknownHostException | SocketException e) {
                     SocketAPI.LOGGER.error("host: " + host, e);
                     return null;

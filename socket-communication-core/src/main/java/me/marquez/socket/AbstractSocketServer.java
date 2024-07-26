@@ -25,7 +25,7 @@ public abstract class AbstractSocketServer implements SocketServer {
     private boolean debug;
 
     @Setter
-    private int debuggingLength = 100;
+    private int debuggingLength = 200;
 
     public AbstractSocketServer(SocketAddress host, boolean debug) {
         this.host = host;

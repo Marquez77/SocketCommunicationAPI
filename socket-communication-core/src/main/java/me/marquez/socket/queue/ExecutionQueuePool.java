@@ -1,26 +1,38 @@
 package me.marquez.socket.queue;
 
+import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class ExecutionQueuePool {
 
     private final ExecutionQueue[] queues;
+    private final int maximumQueuePerTarget;
 
-    public ExecutionQueuePool(int size) {
-        queues = new ExecutionQueue[size];
+    public ExecutionQueuePool(String prefix, int size, int maximumQueuePerTarget) {
+        this.queues = new ExecutionQueue[size];
         for (int i = 0; i < size; i++) {
-            queues[i] = new ExecutionQueue();
+            this.queues[i] = new ExecutionQueue(prefix + "-queue-" + i);
         }
+        this.maximumQueuePerTarget = maximumQueuePerTarget;
     }
 
-    private synchronized ExecutionQueue getBestQueue() {
-        ExecutionQueue bestQueue = queues[0];
+    private synchronized ExecutionQueue getBestQueue(SocketAddress target) {
+        List<ExecutionQueue> targetQueues = new ArrayList<>();
         for (ExecutionQueue queue : queues) {
+            if(target.equals(queue.getCurrentTarget())) {
+                targetQueues.add(queue);
+            }
+        }
+        ExecutionQueue bestQueue = queues[0];
+        for (ExecutionQueue queue : (targetQueues.size() >= maximumQueuePerTarget ? targetQueues.toArray(ExecutionQueue[]::new) : queues)) {
             if (queue.size() < bestQueue.size()) {
                 bestQueue = queue;
             }
         }
+        bestQueue.setCurrentTarget(target);
         return bestQueue;
     }
 
@@ -32,9 +44,10 @@ public class ExecutionQueuePool {
         return Arrays.stream(queues).mapToInt(ExecutionQueue::size).toArray();
     }
 
-    public synchronized void submit(Runnable runnable, CompletableFuture<?> future) {
+    public synchronized void submit(SocketAddress target, Runnable runnable, CompletableFuture<?> future) {
 //        System.out.println("submit: " + getBestQueue().size());
-        getBestQueue().add(runnable, future);
+        getBestQueue(target).add(runnable, future);
+
     }
 
     public int size() {
