@@ -15,7 +15,7 @@ public class TimeoutTest {
         var socket2 = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8382, true);
 
         socket1.open();
-//        socket2.open();
+        socket2.open();
 
         var packet = SocketAPI.createPacketSend();
         for(int i = 0; i < 30; i++) {

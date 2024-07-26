@@ -21,11 +21,11 @@ public class BigDataTest implements PacketListener {
         SocketManager.initialize();
 
         SocketServer server = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8280);
-//        server.setDebug(true);
+        server.setDebug(true);
         server.open();
 
         SocketServer server2 = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8281);
-//        server2.setDebug(true);
+        server2.setDebug(true);
         server2.registerListener(this);
         server2.open();
 
@@ -33,7 +33,7 @@ public class BigDataTest implements PacketListener {
         for(int i = 0; i < 5000000; i++) {
             send.append("aaaaaaaaaaaaaaaaaaaa");
         }
-        int count = 1;
+        int count = 10;
         for(int i = 0; i < count; i++) {
     //        System.out.println(send);
             System.out.println("length: " + send.toString().length());

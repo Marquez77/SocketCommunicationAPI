@@ -32,6 +32,8 @@ public class UDPEchoServer extends AbstractSocketServer {
     protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) {
         super(host, debug);
         sendPublicThreadPool = new ExecutionQueuePool("Send", threadPoolSize, maximumQueuePerTarget);
+        receiveThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Receive"));
+        waitingThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Waiting"));
     }
 
     private void printThreadPoolStatus() {
@@ -50,10 +52,9 @@ public class UDPEchoServer extends AbstractSocketServer {
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
     private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor(); // 메인 소켓 스레드
-    private final ExecutorService receiveThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Receive"));
+    private final ExecutorService receiveThreadPool;
     private final ExecutionQueuePool sendPublicThreadPool;
-    private final ExecutorService sendThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Send"));
-    private final ExecutorService waitingThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Waiting")); // Bigdata 전용
+    private final ExecutorService waitingThreadPool; // Bigdata 전용
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
     private static final int MAX_PACKET_SIZE = 65507;
@@ -78,7 +79,6 @@ public class UDPEchoServer extends AbstractSocketServer {
 
         mainThreadPool.shutdownNow();
         receiveThreadPool.shutdownNow();
-        sendThreadPool.shutdownNow();
         waitingThreadPool.shutdownNow();
     }
 
@@ -94,9 +94,8 @@ public class UDPEchoServer extends AbstractSocketServer {
             InetSocketAddress address = (InetSocketAddress)host;
             String str = data.toString();
             info("[CURRENT->{}:{}] Sent data: [{}] {}", address.getHostString(), address.getPort(), id, trim(str));
-            final long finalId = id;
-            sendThreadPool.submit(() -> sendData(data, finalId, host, internalFuture, ""));
 
+            long finalId = id;
             future.whenComplete((result, throwable) -> {
                 if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally()) {
                     internalFuture.completeExceptionally(new TimeoutException());
@@ -104,17 +103,22 @@ public class UDPEchoServer extends AbstractSocketServer {
                 }
             });
 
+            internalFuture.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS);
+
+            sendData(data, id, host, internalFuture, "");
+
             try {
-                var result = internalFuture.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS).join();
+                var result = internalFuture.join();
                 future.complete(result);
                 if(result == null)
-                    echoMap.remove(finalId);
+                    echoMap.remove(id);
 //                System.out.println("Complete");
             }catch(Exception e) {
 //                System.out.println("Exception " + e);
                 future.completeExceptionally(e);
-                echoMap.remove(finalId);
+                echoMap.remove(id);
             }
+
 //            future.complete(internalFuture.join());
         }, future);
         return future;
@@ -218,7 +222,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             });
             info("[{}:{}->CURRENT] Received big data begin: {}", address.getHostAddress(), port, trim(str));
             String packet = id + ";";
-            receiveThreadPool.submit(() -> processReceivedData(address, port, packet, true));
+            processReceivedData(address, port, packet, true);
         }else if(str.startsWith("!")) { //!index;id;bitData (BigData 조각 패킷)
             processBitData(address, port, str);
         }else {
@@ -254,7 +258,8 @@ public class UDPEchoServer extends AbstractSocketServer {
                 if(finalReceivedLength != sentLength) { //보낸 데이터와 받은 데이터 길이가 다를 경우
                     double loss = 1-(double)finalReceivedLength/sentLength;
                     if(sentData.resend) { //재전송
-                        sendThreadPool.submit(() -> sendData(sentData.data, id, new InetSocketAddress(address, port), sentData.future, ""));
+                        info("[CURRENT->{}:{}->CURRENT] Resend data: [{}] {} (loss: {})", address.getHostAddress(), port, id, trim(sentData.data.toString()), loss);
+                        sendData(sentData.data, id, new InetSocketAddress(address, port), sentData.future, "");
                         return sentData; //맵에서 지워지지 않게 하기
                     }else {
                         sentData.future.completeExceptionally(new DataLossException(sentLength, finalReceivedLength, loss));
@@ -314,7 +319,7 @@ public class UDPEchoServer extends AbstractSocketServer {
         InetSocketAddress address = (InetSocketAddress)host;
         info("[CURRENT->{}:{}] Sent big data begin", address.getHostString(), address.getPort());
         final long finalId = id;
-        sendThreadPool.submit(() -> sendDataPacket(header, finalId, "", host, future, ""));
+        sendDataPacket(header, finalId, "", host, future, "");
         return future;
     }
     private void sendBigData(int length, long finalId, String serializedData, SocketAddress host, CompletableFuture<?> future, String responseHeader) throws Exception{
@@ -365,7 +370,7 @@ public class UDPEchoServer extends AbstractSocketServer {
     }
 
     private static abstract class BigData {
-        final ExecutorService threadPool = Executors.newSingleThreadExecutor();
+        final ExecutorService threadPool = Executors.newSingleThreadExecutor(new SocketThreadFactory("BigData"));
         int targetLength;
         int currentLength;
         String[] data;
