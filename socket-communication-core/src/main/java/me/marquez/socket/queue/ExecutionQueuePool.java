@@ -40,8 +40,8 @@ public class ExecutionQueuePool {
         return (int)Arrays.stream(queues).filter(queue -> queue.size() == 0).count();
     }
 
-    public synchronized int[] getQueueSizes() {
-        return Arrays.stream(queues).mapToInt(ExecutionQueue::size).toArray();
+    public synchronized String[] getQueueSizes() {
+        return Arrays.stream(queues).map(queue -> queue.size() + "" + (queue.getCurrentTarget() != null ? "("+queue.getCurrentTarget()+")" : "")).toArray(String[]::new);
     }
 
     public synchronized void submit(SocketAddress target, Runnable runnable, CompletableFuture<?> future) {
