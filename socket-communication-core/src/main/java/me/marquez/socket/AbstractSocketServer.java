@@ -68,14 +68,14 @@ public abstract class AbstractSocketServer implements SocketServer {
     }
 
     private boolean checkIdentifiers(String[] first, String[] second) {
-        if(first.length != second.length)
-            return false;
         if(first == second)
             return true;
         for(int i = 0; i < first.length; i++) {
+            if(second.length == i)
+                return true;
             if(first[i].equals(second[i]))
                 continue;
-            if(first[i].equals("*") || second[i].equals("*"))
+            if(second[i].equals("*"))
                 continue;
             return false;
         }
