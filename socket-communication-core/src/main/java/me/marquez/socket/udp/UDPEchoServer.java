@@ -36,14 +36,14 @@ public class UDPEchoServer extends AbstractSocketServer {
         waitingThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Waiting"));
     }
 
-    private void printSendingThreadPoolStatus() {
+    private void printSendingThreadPoolStatus(boolean detail) {
         info("[Sending thread pool] idle queues: {}/{}", sendThreadPool.getEmptyQueues(), sendThreadPool.size());
-        info("[Sending thread pool] └ Queue sizes: {}", Arrays.toString(sendThreadPool.getQueueSizes()));
+        if(detail) info("[Sending thread pool] └ Queue sizes: {}", Arrays.toString(sendThreadPool.getQueueSizes()));
     }
 
-    private void printReceivingThreadPoolStatus() {
+    private void printReceivingThreadPoolStatus(boolean detail) {
         info("[Receiving thread pool] idle queues: {}/{}", receiveThreadPool.getEmptyQueues(), receiveThreadPool.size());
-        info("[Receiving thread pool] └ Queue sizes: {}", Arrays.toString(receiveThreadPool.getQueueSizes()));
+        if(detail) info("[Receiving thread pool] └ Queue sizes: {}", Arrays.toString(receiveThreadPool.getQueueSizes()));
     }
 
     private long makeId() {
@@ -90,12 +90,13 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     @Override
     public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
-        printSendingThreadPoolStatus();
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
         long id = makeId();
         while(echoMap.containsKey(id)) id = makeId();
         long finalId = id;
+        printSendingThreadPoolStatus(false);
         sendThreadPool.submit(finalId, host, () -> {
+            printSendingThreadPoolStatus(true);
             echoMap.put(finalId, new SentData(data, future, resend));
             InetSocketAddress address = (InetSocketAddress)host;
             String str = data.toString();
@@ -149,8 +150,9 @@ public class UDPEchoServer extends AbstractSocketServer {
                 byte[] idBuffer = new byte[14];
                 System.arraycopy(receiveData.getData(), 0, idBuffer, 0, 14);
                 long id = Long.parseLong(new String(idBuffer, StandardCharsets.UTF_8));
-                printReceivingThreadPoolStatus();
+                printReceivingThreadPoolStatus(false);
                 receiveThreadPool.submit(id, receiveData.getSocketAddress(), () -> {
+                    printReceivingThreadPoolStatus(true);
                     try {
                         byte[] data = new byte[receiveData.getLength()-14];
                         System.arraycopy(receiveData.getData(), 14, data, 0, data.length-14);
