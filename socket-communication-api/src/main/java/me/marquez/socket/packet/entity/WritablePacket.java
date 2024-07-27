@@ -7,6 +7,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 public interface WritablePacket {
+    String[] getIdentifiers();
     WritablePacket setIdentifier(String... identifiers);
     WritablePacket append(Object... data);
     WritablePacket append(Function<Object, byte[]> serializeFunction, Object... data);

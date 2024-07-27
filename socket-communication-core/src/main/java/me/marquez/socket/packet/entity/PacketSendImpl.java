@@ -15,6 +15,11 @@ public class PacketSendImpl extends AbstractPacketData implements PacketSend {
     }
 
     @Override
+    public String[] getIdentifiers() {
+        return this.identifiers;
+    }
+
+    @Override
     public WritablePacket setIdentifier(String... identifiers) {
         this.identifiers = identifiers;
         return this;
