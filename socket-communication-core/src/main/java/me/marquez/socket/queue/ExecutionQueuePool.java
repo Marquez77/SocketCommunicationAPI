@@ -41,17 +41,34 @@ public class ExecutionQueuePool {
     }
 
     public synchronized String[] getQueueSizes() {
-        return Arrays.stream(queues).map(queue -> queue.size() + "" + (queue.getCurrentTarget() != null ? "("+queue.getCurrentTarget()+")" : "")).toArray(String[]::new);
+        return Arrays.stream(queues).map(queue -> {
+            StringBuilder sb = new StringBuilder();
+            sb.append(queue.size());
+            var target = queue.getCurrentTarget();
+            if(target != null)
+                sb.append("(").append(target).append(")");
+            long id = queue.getCurrentTaskId();
+            if(id != -1)
+                sb.append("[").append(id).append("]");
+            return sb.toString();
+        }).toArray(String[]::new);
     }
 
-    public synchronized void submit(SocketAddress target, Runnable runnable, CompletableFuture<?> future) {
+    public synchronized void submit(long id, SocketAddress target, Runnable runnable, CompletableFuture<?> future) {
 //        System.out.println("submit: " + getBestQueue().size());
-        getBestQueue(target).add(runnable, future);
+        getBestQueue(target).add(id, runnable, future);
 
     }
 
     public int size() {
         return queues.length;
+    }
+
+    public void shutdownNow() {
+        for (ExecutionQueue queue : queues) {
+            if(queue.getThread() != null)
+                queue.getThread().shutdownNow();
+        }
     }
 
 }

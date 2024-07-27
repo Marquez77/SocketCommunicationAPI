@@ -21,11 +21,11 @@ public class BigDataTest implements PacketListener {
         SocketManager.initialize();
 
         SocketServer server = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8280);
-        server.setDebug(true);
+//        server.setDebug(true);
         server.open();
 
         SocketServer server2 = SocketAPI.getFactory(ServerProtocol.UDP).create("localhost", 8281);
-        server2.setDebug(true);
+//        server2.setDebug(true);
         server2.registerListener(this);
         server2.open();
 

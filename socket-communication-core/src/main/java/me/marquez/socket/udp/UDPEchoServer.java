@@ -31,14 +31,19 @@ public class UDPEchoServer extends AbstractSocketServer {
 
     protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) {
         super(host, debug);
-        sendPublicThreadPool = new ExecutionQueuePool("Send", threadPoolSize, maximumQueuePerTarget);
-        receiveThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Receive"));
+        sendThreadPool = new ExecutionQueuePool("Send", threadPoolSize, maximumQueuePerTarget);
+        receiveThreadPool = new ExecutionQueuePool("Receive", threadPoolSize, maximumQueuePerTarget);
         waitingThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Waiting"));
     }
 
-    private void printThreadPoolStatus() {
-        info("[Sending thread pool] idle queues: {}/{}", sendPublicThreadPool.getEmptyQueues(), sendPublicThreadPool.size());
-        info("[Sending thread pool] └ Queue sizes: {}", Arrays.toString(sendPublicThreadPool.getQueueSizes()));
+    private void printSendingThreadPoolStatus() {
+        info("[Sending thread pool] idle queues: {}/{}", sendThreadPool.getEmptyQueues(), sendThreadPool.size());
+        info("[Sending thread pool] └ Queue sizes: {}", Arrays.toString(sendThreadPool.getQueueSizes()));
+    }
+
+    private void printReceivingThreadPoolStatus() {
+        info("[Receiving thread pool] idle queues: {}/{}", receiveThreadPool.getEmptyQueues(), receiveThreadPool.size());
+        info("[Receiving thread pool] └ Queue sizes: {}", Arrays.toString(receiveThreadPool.getQueueSizes()));
     }
 
     private long makeId() {
@@ -51,9 +56,9 @@ public class UDPEchoServer extends AbstractSocketServer {
     private final Map<Long, CompletableFuture<Void>> bigDataBeginMap = new ConcurrentHashMap<>();
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
-    private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor(); // 메인 소켓 스레드
-    private final ExecutorService receiveThreadPool;
-    private final ExecutionQueuePool sendPublicThreadPool;
+    private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor(new SocketThreadFactory("UDPEchoServer")); // 메인 소켓 스레드
+    private final ExecutionQueuePool sendThreadPool;
+    private final ExecutionQueuePool receiveThreadPool;
     private final ExecutorService waitingThreadPool; // Bigdata 전용
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
@@ -78,48 +83,35 @@ public class UDPEchoServer extends AbstractSocketServer {
         serverSocket = null;
 
         mainThreadPool.shutdownNow();
+        sendThreadPool.shutdownNow();
         receiveThreadPool.shutdownNow();
         waitingThreadPool.shutdownNow();
     }
 
     @Override
     public CompletableFuture<PacketReceive> sendDataAndReceive(SocketAddress host, final PacketSend data, boolean resend) {
-        printThreadPoolStatus();
+        printSendingThreadPoolStatus();
         CompletableFuture<PacketReceive> future = new CompletableFuture<>();
-        CompletableFuture<PacketReceive> internalFuture = new CompletableFuture<>();
-        sendPublicThreadPool.submit(host, () -> {
-            long id = makeId();
-            while(echoMap.containsKey(id)) id = makeId();
-            echoMap.put(id, new SentData(data, internalFuture, resend));
+        long id = makeId();
+        while(echoMap.containsKey(id)) id = makeId();
+        long finalId = id;
+        sendThreadPool.submit(finalId, host, () -> {
+            echoMap.put(finalId, new SentData(data, future, resend));
             InetSocketAddress address = (InetSocketAddress)host;
             String str = data.toString();
-            info("[CURRENT->{}:{}] Sent data: [{}] {}", address.getHostString(), address.getPort(), id, trim(str));
 
-            long finalId = id;
-            future.whenComplete((result, throwable) -> {
-                if(!internalFuture.isDone() && !internalFuture.isCancelled() && !internalFuture.isCompletedExceptionally()) {
-                    internalFuture.completeExceptionally(new TimeoutException());
-                    echoMap.remove(finalId);
-                }
-            });
+            future.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS)
+                    .whenComplete((result, throwable) -> {
+                            echoMap.remove(finalId);
+                    });
 
-            internalFuture.completeOnTimeout(null, TIMEOUT, TimeUnit.SECONDS);
-
-            sendData(data, id, host, internalFuture, "");
-
+            sendData(data, finalId, host, future, "");
+            info("[CURRENT->{}:{}] Sent data: [{}] {}", address.getHostString(), address.getPort(), finalId, trim(str));
             try {
-                var result = internalFuture.join();
-                future.complete(result);
-                if(result == null)
-                    echoMap.remove(id);
-//                System.out.println("Complete");
+                future.join(); // sendThreadPool 에서 하나씩 처리 해야 하므로 sendData에 대한 응답이 올 때까지 대기
             }catch(Exception e) {
-//                System.out.println("Exception " + e);
                 future.completeExceptionally(e);
-                echoMap.remove(id);
             }
-
-//            future.complete(internalFuture.join());
         }, future);
         return future;
     }
@@ -154,9 +146,21 @@ public class UDPEchoServer extends AbstractSocketServer {
                 byte[] buffer = new byte[serverSocket.getReceiveBufferSize()];
                 final DatagramPacket receiveData = new DatagramPacket(buffer, buffer.length);
                 serverSocket.receive(receiveData);
-                byte[] decompressed = CompressUtil.decompress(receiveData.getData());
-                receiveData.setData(decompressed);
-                receiveThreadPool.submit(() -> onReceiveData(receiveData));
+                byte[] idBuffer = new byte[14];
+                System.arraycopy(receiveData.getData(), 0, idBuffer, 0, 14);
+                long id = Long.parseLong(new String(idBuffer, StandardCharsets.UTF_8));
+                printReceivingThreadPoolStatus();
+                receiveThreadPool.submit(id, receiveData.getSocketAddress(), () -> {
+                    try {
+                        byte[] data = new byte[receiveData.getLength()-14];
+                        System.arraycopy(receiveData.getData(), 14, data, 0, data.length-14);
+                        byte[] decompressed = CompressUtil.decompress(data);
+                        receiveData.setData(decompressed);
+                        onReceiveData(id, receiveData);
+                    }catch(IOException e) {
+                        error(e);
+                    }
+                }, null);
             }catch(Exception e) {
                 if(e.getMessage().contains("Socket closed"))
                     info("Socket closed");
@@ -173,88 +177,89 @@ public class UDPEchoServer extends AbstractSocketServer {
         }
     }
 
-    private void onReceiveData(DatagramPacket receiveData) {
+    private void onReceiveData(long id, DatagramPacket receiveData) {
         final String str = new String(receiveData.getData(), receiveData.getOffset(), receiveData.getLength(), StandardCharsets.UTF_8);
         InetAddress address = receiveData.getAddress();
         int port = receiveData.getPort();
 
-        if(!checkBigData(address, port, str)) {
-            processReceivedData(address, port, str, false);
+        if(!checkBigData(id, address, port, str)) {
+            processReceivedData(id, address, port, str, false);
         }
     }
 
-    private String combineBigData(long id, BigData bigData) {
-        return id + ";" + String.join("", bigData.data);
+    private String combineBigData(BigData bigData) {
+        return String.join("", bigData.data);
     }
 
-    private void processBitData(InetAddress address, int port, String str) {
+    private void processBitData(long id, InetAddress address, int port, String str) {
         //!index;id;bitData
-        String[] split = str.substring(1).split(";", 3);
+        String[] split = str.substring(1).split(";", 2);
         int i = Integer.parseInt(split[0]);
-        long id = Long.parseLong(split[1]);
-        String data = split[2];
+        String data = split[1];
         BigData bigData = bigDataMap.getOrDefault(id, null);
         if(bigData == null) { // 시작 패킷이 먼저 오지 않은 경우 무시
-            info("[{}:{}->CURRENT] Received invalid bit data: {}", address.getHostAddress(), port, trim(str));
+            info("[{}:{}->CURRENT] Received invalid bit data: [{}] {}", address.getHostAddress(), port, id, trim(str));
         }else {
             bigData.threadPool.submit(() -> { //해당 BigData 의 싱글 쓰레드에서 처리
-                info("[{}:{}->CURRENT] Received bit data: {}", address.getHostAddress(), port, trim(str));
+                info("[{}:{}->CURRENT] Received bit data: [{}] {}", address.getHostAddress(), port, id, trim(str));
                 if (bigData.add(i, data)) { //데이터를 끝까지 받은 경우
-                    String packet = combineBigData(id, bigData);
-                    processReceivedData(address, port, packet, false); //지금까지 받은 데이터 합쳐서 처리
+                    String packet = combineBigData(bigData);
+                    processReceivedData(id, address, port, packet, false); //지금까지 받은 데이터 합쳐서 처리
                     bigDataMap.remove(id, bigData); //맵에서 삭제
                 }
             });
         }
     }
 
-    private boolean checkBigData(InetAddress address, int port, String str) {
+    private boolean checkBigData(long id, InetAddress address, int port, String str) {
         if(str.startsWith("!!")) { //!!packetSize;id (BigData 시작)
-            String[] split = str.substring(2).split(";", 3);
+            String[] split = str.substring(2).split(";", 2);
             int length = Integer.parseInt(split[0]);
-            long id = Long.parseLong(split[1]);
-            bigDataMap.put(id, new BigData(length, waitingThreadPool) {
+//            System.out.println("receive Length: " + length);
+            bigDataMap.put(id, new BigData(id, length, waitingThreadPool) {
                 @Override
                 public void timeout() {
-                    String data = combineBigData(id, this);
+//                    System.out.println("timeout");
+                    String data = combineBigData(this);
                     responseData(id, data, address, port, false);
                 }
             });
-            info("[{}:{}->CURRENT] Received big data begin: {}", address.getHostAddress(), port, trim(str));
+            info("[{}:{}->CURRENT] Received big data begin: [{}] {}", address.getHostAddress(), port, id, trim(str));
             String packet = id + ";";
-            processReceivedData(address, port, packet, true);
+            processReceivedData(id, address, port, packet, true);
         }else if(str.startsWith("!")) { //!index;id;bitData (BigData 조각 패킷)
-            processBitData(address, port, str);
+            processBitData(id, address, port, str);
         }else {
             return false;
         }
         return true;
     }
 
-    private void processReceivedData(InetAddress address, int port, String str, boolean bigDataStart) {
-        String[] split = str.split(";", 2);
-        final long id = Long.parseLong(split[0]);
+    private void processReceivedData(long id, InetAddress address, int port, String str, boolean bigDataStart) {
+        info("[{}:{}->CURRENT] Process received data: [{}] {}", address.getHostAddress(), port, id, trim(str));
         int receivedLength = 0;
-        if(split[1].startsWith("l")) { //Response 데이터 인지 확인
-            split = split[1].substring(1).split(";", 2);
+        if(str.startsWith("l")) { //Response 데이터 인지 확인
+            String[] split = str.substring(1).split(";", 2);
             receivedLength = Integer.parseInt(split[0]);
+            str = split[1];
         }
+        final String finalStr = str;
         if(bigDataBeginMap.containsKey(id)) { //BigData 시작 패킷일 경우 Future Complete
-            info("[CURRENT->{}:{}->CURRENT] Received echo big data begin: {}", address.getHostAddress(), port, trim(str));
+            info("[CURRENT->{}:{}->CURRENT] Received echo big data begin: [{}] {}", address.getHostAddress(), port, id, trim(str));
             bigDataBeginMap.computeIfPresent(id, (k, v) -> {
                 v.complete(null);
                 return null;
             });
         }else if(echoMap.containsKey(id)) { //이곳에서 보낸 데이터일 경우 Future Complete
 //            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, trim(str));
-            final String[] finalSplit = split;
             final int finalReceivedLength = receivedLength;
             echoMap.computeIfPresent(id,(k, sentData) -> {
-                PacketReceive receive_packet = PacketReceiveImpl.of(finalSplit[1]);
+                PacketReceive receive_packet = PacketReceiveImpl.of(finalStr);
                 long ms = System.currentTimeMillis()-id/10;
                 if(ms < 0) ms = 0;
                 info("[CURRENT->{}:{}->CURRENT] Received echo data: [{}] {} ({}ms)", address.getHostAddress(), port, id, trim(receive_packet.toString()), ms);
                 int sentLength = sentData.data.toString().length();
+//                System.out.println("Length compare: " + finalReceivedLength + " != " + sentLength);
                 if(finalReceivedLength != sentLength) { //보낸 데이터와 받은 데이터 길이가 다를 경우
                     double loss = 1-(double)finalReceivedLength/sentLength;
                     if(sentData.resend) { //재전송
@@ -272,7 +277,7 @@ public class UDPEchoServer extends AbstractSocketServer {
 
         }else { //다른 곳에서 받은 데이터일 경우 데이터 되돌려주기
             if(receivedLength == 0) { //오류 방지, response 데이터가 아님을 확인
-                String data = split[1];
+                String data = finalStr;
                 if (bigDataStart) {
                     data = "[]";
                 } else {
@@ -295,6 +300,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             onReceive(host, receive_packet, response_packet);
         }
         info("[CURRENT->{}:{}] Response data: [{}] {}", address.getHostAddress(), port, id, trim(response_packet.toString()));
+//        System.out.println("Response length: " + data.length());
         sendData((PacketSend)response_packet, id, host, null, ("l" + data.length() + ";"));
     }
 
@@ -304,6 +310,7 @@ public class UDPEchoServer extends AbstractSocketServer {
         // 데이터가 최대 패킷 크기보다 클 경우 분할해서 전송
         if(length + 14 + 1 > MAX_PACKET_SIZE) { //id + ; = 14 + 1
             try {
+//                System.out.println("sendData length: " + length);
                 sendBigData(length, id, serializedData, host, future, responseHeader);
             } catch (Exception e) {
                 if(future != null) future.completeExceptionally(e);
@@ -318,8 +325,7 @@ public class UDPEchoServer extends AbstractSocketServer {
         bigDataBeginMap.put(id, future);
         InetSocketAddress address = (InetSocketAddress)host;
         info("[CURRENT->{}:{}] Sent big data begin", address.getHostString(), address.getPort());
-        final long finalId = id;
-        sendDataPacket(header, finalId, "", host, future, "");
+        sendDataPacket(header, id, "", host, future, "");
         return future;
     }
     private void sendBigData(int length, long finalId, String serializedData, SocketAddress host, CompletableFuture<?> future, String responseHeader) throws Exception{
@@ -344,15 +350,18 @@ public class UDPEchoServer extends AbstractSocketServer {
             endIndex = Math.min(index + bitSize, length);
             String bitData = serializedData.substring(index, endIndex);
             sendDataPacket(header, finalId, bitData, host, future, responseHeader);
-//            if(i%2 == 0) Thread.sleep(1);
         }
     }
 
     private void sendDataPacket(String header, long finalId, String data, SocketAddress host, @Nullable CompletableFuture<?> future, String responseHeader) {
         try {
-            byte[] buffer = (header + finalId + ";" + responseHeader + data).getBytes(StandardCharsets.UTF_8);
+            byte[] buffer = (header + responseHeader + data).getBytes(StandardCharsets.UTF_8);
             buffer = CompressUtil.compress(buffer);
-            DatagramPacket sendData = new DatagramPacket(buffer, buffer.length, host);
+            byte[] idBuffer = String.valueOf(finalId).getBytes(StandardCharsets.UTF_8);
+            byte[] sendBuffer = new byte[buffer.length + idBuffer.length];
+            System.arraycopy(idBuffer, 0, sendBuffer, 0, idBuffer.length);
+            System.arraycopy(buffer, 0, sendBuffer, idBuffer.length, buffer.length);
+            DatagramPacket sendData = new DatagramPacket(sendBuffer, sendBuffer.length, host);
             serverSocket.send(sendData);
         } catch (Exception e) {
             if(future != null)
@@ -370,13 +379,14 @@ public class UDPEchoServer extends AbstractSocketServer {
     }
 
     private static abstract class BigData {
-        final ExecutorService threadPool = Executors.newSingleThreadExecutor(new SocketThreadFactory("BigData"));
+        final ExecutorService threadPool;
         int targetLength;
         int currentLength;
         String[] data;
         long timeout;
 
-        public BigData(int length, ExecutorService executors) {
+        public BigData(long id, int length, ExecutorService executors) {
+            threadPool = Executors.newSingleThreadExecutor(new SocketThreadFactory("BigData-" + id));
             this.targetLength = length;
             this.currentLength = 0;
             int size = (int)Math.ceil((double)length/MAX_PACKET_SIZE)+1;
@@ -394,7 +404,13 @@ public class UDPEchoServer extends AbstractSocketServer {
 
         public void checkReceiving() {
             timeout = System.currentTimeMillis()+1000L;
-            while(System.currentTimeMillis() < timeout);
+            while(System.currentTimeMillis() < timeout) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             if(currentLength != targetLength) timeout();
         }
 

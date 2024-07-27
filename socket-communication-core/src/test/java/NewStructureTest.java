@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.UUID;
 
 public class NewStructureTest {
+    private static long start;
     public static void main(String[] args) throws IOException {
         SocketManager.initialize();
 
@@ -19,9 +20,9 @@ public class NewStructureTest {
         if(udpFactory == null)
             return;
 
-        SocketServer server1 = udpFactory.createOrGet("localhost", 8081, true);
+        SocketServer server1 = udpFactory.createOrGet("localhost", 8081, false);
 
-        SocketServer server2 = udpFactory.createOrGet("localhost", 8082, true);
+        SocketServer server2 = udpFactory.createOrGet("localhost", 8082, false);
 
         server1.open();
         server2.open();
@@ -29,6 +30,7 @@ public class NewStructureTest {
         server2.registerListener(new PacketListener() {
             @PacketHandler(identifiers = {"TEST", "*"})
             public void onReceivePacket(PacketMessage message) throws IOException, ClassNotFoundException {
+                System.out.println(System.currentTimeMillis() - start);
                 System.out.println("Receive: " + message.received_packet());
                 System.out.println("r1: " + message.received_packet().nextString());
                 System.out.println("r2: " + message.received_packet().nextInt());
@@ -48,8 +50,10 @@ public class NewStructureTest {
             .append("QWER")
             .append("ASDF");
         System.out.println("send: " + send.toString().isEmpty() + " " + Arrays.toString(send.toString().getBytes()));
+        start = System.currentTimeMillis();
         server1.sendDataAndReceive(server2.getHost(), send)
                 .whenComplete((packetReceive, throwable) -> {
+                    System.out.println(System.currentTimeMillis() - start + "ms");
                     System.out.println("and receive: " + packetReceive);
                     System.out.println("ar1: " + packetReceive.nextString());
                 });

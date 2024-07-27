@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.net.SocketAddress;
 import java.util.LinkedList;
@@ -16,11 +17,15 @@ public class ExecutionQueue {
 
     @AllArgsConstructor
     private static class Execution {
-        Runnable runnable;
-        CompletableFuture<?> future;
+        long id;
+        @NotNull Runnable runnable;
+        @Nullable CompletableFuture<?> future;
     }
 
-    private final ExecutorService thread;
+    private final String prefix;
+    @Getter
+    @Nullable
+    private ExecutorService thread;
     private final Queue<Execution> queue = new LinkedList<>();
     private volatile boolean running = false;
     @Getter
@@ -28,16 +33,18 @@ public class ExecutionQueue {
     private volatile SocketAddress currentTarget;
 
     public ExecutionQueue(String prefix) {
-        this.thread = Executors.newSingleThreadExecutor(new SocketThreadFactory(prefix));
+        this.prefix = prefix;
     }
 
-    public synchronized void add(@NotNull Runnable runnable, CompletableFuture<?> future) {
+    public synchronized void add(long id, @NotNull Runnable runnable, @Nullable CompletableFuture<?> future) {
         // System.out.println("add: " + this);
-        queue.add(new Execution(runnable, future));
+        queue.add(new Execution(id, runnable, future));
         // System.out.println("Added: " + this + " " + queue.size() + " " + running);
         if(running)
             return;
         running = true;
+        if(thread == null)
+            this.thread = Executors.newSingleThreadExecutor(new SocketThreadFactory(prefix));
         thread.execute(() -> {
             Execution task;
             while (true) {
@@ -47,10 +54,13 @@ public class ExecutionQueue {
                     // System.out.println("Peeked: " + this + " " + queue.size() + " " + running);
                 }
                 try {
-                    if(task != null && !(task.future.isDone() || task.future.isCancelled()))
-                        task.runnable.run();
+                    if(task != null)
+                        if(task.future == null || !(task.future.isDone() || task.future.isCancelled()))
+                            task.runnable.run();
                 }catch (Exception e) {
-                    e.printStackTrace();
+                    new RuntimeException(e).printStackTrace();
+                    if(task.future != null)
+                        task.future.completeExceptionally(e);
                 }
                 synchronized (this) {
                     // System.out.println("Poll: " + this + " " + queue.size() + " " + running);
@@ -68,6 +78,13 @@ public class ExecutionQueue {
 
     public synchronized int size() {
         return queue.size();
+    }
+
+    public synchronized long getCurrentTaskId() {
+        var task = queue.peek();
+        if(task == null)
+            return -1;
+        return task.id;
     }
 
 
