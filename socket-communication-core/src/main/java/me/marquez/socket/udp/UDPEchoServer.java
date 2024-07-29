@@ -265,7 +265,7 @@ public class UDPEchoServer extends AbstractSocketServer {
     private void processReceivedData(Identifier identifier, String str, boolean bigDataStart) {
         InetSocketAddress address = (InetSocketAddress)identifier.address;
         info("[{}:{}->CURRENT] Process received data: [{}] {}", address.getHostString(), address.getPort(), identifier.id, trim(str));
-        int receivedLength = 0;
+        int receivedLength = -1;
         if(str.startsWith("l")) { //Response 데이터 인지 확인
             String[] split = str.substring(1).split(";", 2);
             receivedLength = Integer.parseInt(split[0]);
@@ -278,7 +278,7 @@ public class UDPEchoServer extends AbstractSocketServer {
                 v.complete(null);
                 return null;
             });
-        }else if(echoMap.containsKey(identifier)) { //이곳에서 보낸 데이터일 경우 Future Complete
+        }else if(receivedLength > -1 && echoMap.containsKey(identifier)) { //이곳에서 보낸 데이터일 경우 Future Complete
 //            info("[CURRENT->{}:{}->CURRENT] Received echo data: {}", address.getHostAddress(), port, trim(str));
             final int finalReceivedLength = receivedLength;
             echoMap.computeIfPresent(identifier, (k, sentData) -> {
@@ -304,7 +304,7 @@ public class UDPEchoServer extends AbstractSocketServer {
             });
 
         }else { //다른 곳에서 받은 데이터일 경우 데이터 되돌려주기
-            if(receivedLength == 0) { //오류 방지, response 데이터가 아님을 확인
+            if(receivedLength == -1) { //오류 방지, response 데이터가 아님을 확인
                 String data = finalStr;
                 if (bigDataStart) {
                     data = "[]";
