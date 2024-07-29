@@ -29,11 +29,26 @@ public class UDPEchoServer extends AbstractSocketServer {
         this(host, debug, 10, 10);
     }
 
+    private final int threadPoolSize;
+    private final int maximumQueuePerTarget;
+
     protected UDPEchoServer(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) {
         super(host, debug);
+        this.threadPoolSize = threadPoolSize;
+        this.maximumQueuePerTarget = maximumQueuePerTarget;
+    }
+
+    private void initThreadPool() {
+        if(sendThreadPool != null)
+            sendThreadPool.shutdownNow();
+        if(receiveThreadPool != null)
+            receiveThreadPool.shutdownNow();
+        if(waitingThreadPool != null)
+            waitingThreadPool.shutdownNow();
         sendThreadPool = new ExecutionQueuePool("Send", threadPoolSize, maximumQueuePerTarget);
         receiveThreadPool = new ExecutionQueuePool("Receive", threadPoolSize, maximumQueuePerTarget);
         waitingThreadPool = Executors.newFixedThreadPool(threadPoolSize, new SocketThreadFactory("Waiting"));
+        info("Thread pool initialized (threadPoolSize={}, maximumQueuePerTarget={})", threadPoolSize, maximumQueuePerTarget);
     }
 
     private void printSendingThreadPoolStatus(boolean detail) {
@@ -57,9 +72,9 @@ public class UDPEchoServer extends AbstractSocketServer {
     private final Map<Long, BigData> bigDataMap = new ConcurrentHashMap<>(); //identifier, bigData
 
     private final ExecutorService mainThreadPool = Executors.newSingleThreadExecutor(new SocketThreadFactory("UDPEchoServer")); // 메인 소켓 스레드
-    private final ExecutionQueuePool sendThreadPool;
-    private final ExecutionQueuePool receiveThreadPool;
-    private final ExecutorService waitingThreadPool; // Bigdata 전용
+    private ExecutionQueuePool sendThreadPool;
+    private ExecutionQueuePool receiveThreadPool;
+    private ExecutorService waitingThreadPool; // Bigdata 전용
 
     //IPv4의 UDP 데이터그램 페이로드 제한은 65535-28 = 65507 byte
     private static final int MAX_PACKET_SIZE = 65507;
