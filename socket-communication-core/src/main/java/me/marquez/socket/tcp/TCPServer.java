@@ -73,7 +73,7 @@ public class TCPServer extends AbstractSocketServer {
             @Override
             public void onMessage(WebSocket webSocket, String s) {
                 long id = (long)(Math.random()*(1000000000000000L));
-                info("[{}<-{}] Received message [{}]: {}", host, webSocket.getRemoteSocketAddress(), id, trim(s));
+                info("[{}<-{}] (Server) Received message [{}]: {}", host, webSocket.getRemoteSocketAddress(), id, trim(s));
                 printReceivingThreadPoolStatus(false);
                 receiveThreadPool.submit(id, webSocket.getRemoteSocketAddress(), () -> {
                     PacketReceive receive = PacketReceiveImpl.of(s);
@@ -83,12 +83,12 @@ public class TCPServer extends AbstractSocketServer {
                         var address = new InetSocketAddress(webSocket.getRemoteSocketAddress().getHostString(), receive.nextInt());
                         clients.put(address, webSocket);
                         clientAddressMap.put(webSocket, address);
-                        info("[{}<-{}] Received connection hostname: {}", host, webSocket.getRemoteSocketAddress(), address);
+                        info("[{}<-{}] (Server) Received connection hostname: {}", host, webSocket.getRemoteSocketAddress(), address);
                     } else {
                         var address = clientAddressMap.get(webSocket);
                         if(address == null)
                             return;
-                        info("[{}<-{}] Received data [{}]: {}", host, address, id, trim(s));
+                        info("[{}<-{}] (Server) Received data [{}]: {}", host, address, id, trim(s));
                         printReceivingThreadPoolStatus(true);
                         onReceive(address, receive, null);
                     }
@@ -161,9 +161,10 @@ public class TCPServer extends AbstractSocketServer {
                 @Override
                 public void onMessage(String s) {
                     long id = (long)(Math.random()*(1000000000000000L));
-                    info("[{}<-{}] Received data [{}]: {}", host, address, id, trim(s));
+                    info("[{}<-{}] (Client) Received message [{}]: {}", host, address, id, trim(s));
                     printReceivingThreadPoolStatus(false);
                     receiveThreadPool.submit(id, address, () -> {
+                        info("[{}<-{}] (Client) Received data [{}]: {}", host, address, id, trim(s));
                         printReceivingThreadPoolStatus(true);
                         PacketReceive receive = PacketReceiveImpl.of(s);
                         onReceive(address, receive, null);
