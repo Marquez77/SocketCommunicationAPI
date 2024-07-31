@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class UDPEchoServer extends AbstractSocketServer {
 
-    private static final long TIMEOUT = 30; //UDP 응답 최대 대기 시간 (초)
+    private static final long TIMEOUT = 3; //UDP 응답 최대 대기 시간 (초)
     private static final AtomicInteger identifier = new AtomicInteger(0); //동시성 문제 해결을 위해 원자성을 보장하는 Atomic 클래스 사용
 
     private DatagramSocket serverSocket;
@@ -131,11 +131,11 @@ public class UDPEchoServer extends AbstractSocketServer {
 
             sendData(data, identifier.id, host, future, "");
             info("[CURRENT->{}:{}] Sent data: [{}] {}", address.getHostString(), address.getPort(), identifier.id, trim(str));
-            try {
-                future.join(); // sendThreadPool 에서 하나씩 처리 해야 하므로 sendData에 대한 응답이 올 때까지 대기
-            }catch(Exception e) {
-                future.completeExceptionally(e);
-            }
+//            try {
+//                future.join(); // sendThreadPool 에서 하나씩 처리 해야 하므로 sendData에 대한 응답이 올 때까지 대기
+//            }catch(Exception e) {
+//                future.completeExceptionally(e);
+//            }
         }, future);
         return future;
     }

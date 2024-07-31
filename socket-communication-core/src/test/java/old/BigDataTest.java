@@ -5,7 +5,7 @@
 //import java.io.IOException;
 //import java.net.InetSocketAddress;
 //
-//public class BigDataTest {
+//public class udp.BigDataTest {
 //    private static long min = Long.MAX_VALUE;
 //    private static long max = Long.MIN_VALUE;
 //    private static long sum = 0;

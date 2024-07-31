@@ -1,5 +1,6 @@
 package me.marquez.socket;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import me.marquez.socket.data.SocketServer;
@@ -20,6 +21,7 @@ public abstract class AbstractSocketServer implements SocketServer {
     @Getter
     protected final SocketAddress host;
     private final Map<PacketListener, Map<Method, PacketHandler>> listeners;
+    private final Map<String, List<PacketMethod>> methods;
 
     @Setter
     private boolean debug;
@@ -30,6 +32,7 @@ public abstract class AbstractSocketServer implements SocketServer {
     public AbstractSocketServer(SocketAddress host, boolean debug) {
         this.host = host;
         this.listeners = new ConcurrentHashMap<>();
+        this.methods = new ConcurrentHashMap<>();
         this.debug = debug;
     }
 
@@ -61,10 +64,17 @@ public abstract class AbstractSocketServer implements SocketServer {
             PacketHandler handler = method.getAnnotation(PacketHandler.class);
             method.setAccessible(true);
             map.put(method, handler);
+
+            String key = handler.identifiers().length == 0 ? "*" : handler.identifiers()[0];
+            methods.computeIfAbsent(key, k -> new ArrayList<>()).add(new PacketMethod(listener, method, handler));
         }
         if(map.isEmpty())
             return;
         listeners.put(listener, map);
+
+        methods.forEach((key, list) -> {
+            list.sort(Comparator.comparingInt(o -> o.handler.priority()));
+        });
     }
 
     private boolean checkIdentifiers(String[] first, String[] second) {
@@ -84,19 +94,28 @@ public abstract class AbstractSocketServer implements SocketServer {
 
     protected void onReceive(SocketAddress socketAddress, PacketReceive receive_packet, PacketResponse response_packet) {
         String[] identifiers = receive_packet.getIdentifiers();
-        listeners.forEach((listener, map) -> {
-            map.forEach((method, handler) -> {
-                if(checkIdentifiers(identifiers, handler.identifiers())) {
-//                    SocketAPI.LOGGER.info("Execute packet handler: {}#{}", listener.getClass().getName(), method.getName());
-                    PacketMessage message = new PacketMessage(this, socketAddress, receive_packet.clonePacket(), response_packet);
-                    try {
-                        method.invoke(listener, message);
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        SocketAPI.LOGGER.error("invoke method with parameter: " + message, e.getCause());
-                    }
+
+        String key = identifiers.length == 0 ? "*" : identifiers[0];
+        if(!methods.containsKey(key))
+            return;
+        var list = methods.get(key);
+        PacketMessage message = new PacketMessage(this, socketAddress, receive_packet.clonePacket(), response_packet);
+        list.forEach(packetMethod -> {
+            if(checkIdentifiers(identifiers, packetMethod.handler.identifiers())) {
+                try {
+                    packetMethod.method.invoke(packetMethod.listener, message);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    SocketAPI.LOGGER.error("invoke method with parameter: " + message, e.getCause());
                 }
-            });
+            }
         });
+    }
+
+    @AllArgsConstructor
+    private static class PacketMethod {
+        PacketListener listener;
+        Method method;
+        PacketHandler handler;
     }
 
 }

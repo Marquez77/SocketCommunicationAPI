@@ -1,3 +1,5 @@
+package udp;
+
 import me.marquez.socket.SocketAPI;
 import me.marquez.socket.SocketManager;
 import me.marquez.socket.data.ServerProtocol;

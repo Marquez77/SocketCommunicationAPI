@@ -9,6 +9,6 @@ import java.net.SocketAddress;
 public class TCPSocketFactory extends AbstractSocketFactory {
     @Override
     public @NotNull SocketServer create(SocketAddress host, boolean debug, int threadPoolSize, int maximumQueuePerTarget) {
-        return new TCPServer(host, debug);
+        return new TCPServer(host, debug, threadPoolSize, maximumQueuePerTarget);
     }
 }

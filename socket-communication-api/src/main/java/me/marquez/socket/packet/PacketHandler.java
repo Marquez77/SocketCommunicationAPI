@@ -13,5 +13,6 @@ public @interface PacketHandler {
      * @return Identifiers for classifying packets.
      */
     String[] identifiers() default {};
+    int priority() default 0;
 
 }
