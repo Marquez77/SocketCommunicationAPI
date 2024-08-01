@@ -5,7 +5,6 @@ import me.marquez.socket.SocketAPI;
 import me.marquez.socket.packet.entity.PacketReceive;
 import me.marquez.socket.packet.entity.PacketReceiveImpl;
 import me.marquez.socket.packet.entity.PacketSend;
-import me.marquez.socket.queue.ExecutionQueuePool;
 import me.marquez.socket.queue.SocketThreadFactory;
 import org.java_websocket.WebSocket;
 import org.java_websocket.client.WebSocketClient;
@@ -17,17 +16,17 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TCPServer extends AbstractSocketServer {
 
     private final int threadPoolSize;
     private final int maximumQueuePerTarget;
-    private ExecutionQueuePool receiveThreadPool;
+    private ExecutorService receiveThreadPool;
     private WebSocketServer server;
     private final Map<SocketAddress, WebSocket> clients = new ConcurrentHashMap<>();
     private final Map<WebSocket, SocketAddress> clientAddressMap = new ConcurrentHashMap<>();
@@ -42,7 +41,7 @@ public class TCPServer extends AbstractSocketServer {
     private void initThreadPool() {
         if(receiveThreadPool != null)
             receiveThreadPool.shutdownNow();
-        receiveThreadPool = new ExecutionQueuePool("Receive", threadPoolSize, maximumQueuePerTarget);
+        receiveThreadPool = Executors.newCachedThreadPool(new SocketThreadFactory("Receive"));
         info("Thread pool initialized (threadPoolSize={}, maximumQueuePerTarget={})", threadPoolSize, maximumQueuePerTarget);
     }
 
@@ -52,8 +51,8 @@ public class TCPServer extends AbstractSocketServer {
     }
 
     private void printReceivingThreadPoolStatus(boolean detail) {
-        info("[Receiving thread pool] idle queues: {}/{}", receiveThreadPool.getEmptyQueues(), receiveThreadPool.size());
-        if(detail) info("[Receiving thread pool] └ Queue sizes: {}", Arrays.toString(receiveThreadPool.getQueueSizes()));
+//        info("[Receiving thread pool] idle queues: {}/{}", receiveThreadPool.getEmptyQueues(), receiveThreadPool.size());
+//        if(detail) info("[Receiving thread pool] └ Queue sizes: {}", Arrays.toString(receiveThreadPool.getQueueSizes()));
     }
 
     @Override
@@ -87,7 +86,7 @@ public class TCPServer extends AbstractSocketServer {
                 long id = (long)(Math.random()*(1000000000000000L));
                 info("[{}<-{}] (Server) Received message [{}]: {}", host, webSocket.getRemoteSocketAddress(), id, trim(s));
                 printReceivingThreadPoolStatus(false);
-                receiveThreadPool.submit(id, webSocket.getRemoteSocketAddress(), () -> {
+                receiveThreadPool.submit(() -> {
                     PacketReceive receive = PacketReceiveImpl.of(s);
                     var address = clientAddressMap.get(webSocket);
                     if(address == null)
@@ -95,7 +94,7 @@ public class TCPServer extends AbstractSocketServer {
                     info("[{}<-{}] (Server) Received data [{}]: {}", host, address, id, trim(s));
                     printReceivingThreadPoolStatus(true);
                     onReceive(address, receive, null);
-                }, null);
+                });
             }
 
             @Override
@@ -166,12 +165,12 @@ public class TCPServer extends AbstractSocketServer {
                     long id = (long)(Math.random()*(1000000000000000L));
                     info("[{}<-{}] (Client) Received message [{}]: {}", host, address, id, trim(s));
                     printReceivingThreadPoolStatus(false);
-                    receiveThreadPool.submit(id, address, () -> {
+                    receiveThreadPool.submit(() -> {
                         info("[{}<-{}] (Client) Received data [{}]: {}", host, address, id, trim(s));
                         printReceivingThreadPoolStatus(true);
                         PacketReceive receive = PacketReceiveImpl.of(s);
                         onReceive(address, receive, null);
-                    }, null);
+                    });
                 }
 
                 @Override
