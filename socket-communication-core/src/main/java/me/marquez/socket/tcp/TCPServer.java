@@ -72,11 +72,8 @@ public class TCPServer extends AbstractSocketServer {
 
             @Override
             public void onMessage(WebSocket webSocket, String s) {
-                long id = (long)(Math.random()*(1000000000000000L));
-                info("[{}<-{}] (Server) Received message [{}]: {}", host, webSocket.getRemoteSocketAddress(), id, trim(s));
-                printReceivingThreadPoolStatus(false);
-                receiveThreadPool.submit(id, webSocket.getRemoteSocketAddress(), () -> {
-                    PacketReceive receive = PacketReceiveImpl.of(s);
+                if(s.charAt(0) == '\u0000') {
+                    PacketReceive receive = PacketReceiveImpl.of(s.substring(1));
                     if (receive.getIdentifiers().length == 1 &&
                             receive.getIdentifiers()[0].equalsIgnoreCase("TCP-Server-Open")) {
                         String hostname = receive.nextString();
@@ -84,14 +81,20 @@ public class TCPServer extends AbstractSocketServer {
                         clients.put(address, webSocket);
                         clientAddressMap.put(webSocket, address);
                         info("[{}<-{}] (Server) Received connection hostname: {}", host, webSocket.getRemoteSocketAddress(), address);
-                    } else {
-                        var address = clientAddressMap.get(webSocket);
-                        if(address == null)
-                            return;
-                        info("[{}<-{}] (Server) Received data [{}]: {}", host, address, id, trim(s));
-                        printReceivingThreadPoolStatus(true);
-                        onReceive(address, receive, null);
+                        return;
                     }
+                }
+                long id = (long)(Math.random()*(1000000000000000L));
+                info("[{}<-{}] (Server) Received message [{}]: {}", host, webSocket.getRemoteSocketAddress(), id, trim(s));
+                printReceivingThreadPoolStatus(false);
+                receiveThreadPool.submit(id, webSocket.getRemoteSocketAddress(), () -> {
+                    PacketReceive receive = PacketReceiveImpl.of(s);
+                    var address = clientAddressMap.get(webSocket);
+                    if(address == null)
+                        return;
+                    info("[{}<-{}] (Server) Received data [{}]: {}", host, address, id, trim(s));
+                    printReceivingThreadPoolStatus(true);
+                    onReceive(address, receive, null);
                 }, null);
             }
 
@@ -154,7 +157,7 @@ public class TCPServer extends AbstractSocketServer {
                     PacketSend send = SocketAPI.createPacketSend("TCP-Server-Open");
                     send.appendString(((InetSocketAddress)host).getHostString());
                     send.appendInt(((InetSocketAddress)host).getPort());
-                    send(send.toString());
+                    send('\u0000' + send.toString());
                     future.complete(true);
                 }
 
