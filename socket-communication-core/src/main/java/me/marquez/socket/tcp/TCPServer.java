@@ -187,20 +187,25 @@ public class TCPServer extends AbstractSocketServer {
             };
             wsClient.setConnectionLostTimeout(1);
             wsClient.connect();
-            if(future.join())
-                return wsClient;
-            return null;
+            return wsClient;
         });
         if(client == null)
             return CompletableFuture.completedFuture(false);
-        if(!client.isOpen() || client.isClosed()) {
-            info("[{}->{}] Connection is not open", host, address);
-            clients.remove(address);
-            return sendDataFuture(address, send_packet);
-        }
-        client.send(str);
-        info("[{}->{}] Sent data: {}", host, address, trim(str));
-        return CompletableFuture.completedFuture(true);
+        CompletableFuture<Boolean> result = new CompletableFuture<>();
+        future.whenComplete((b, throwable) -> {
+            if(!b) {
+                result.complete(false);
+            }else {
+                if(!client.isOpen() || client.isClosed()) {
+                    info("[{}->{}] Connection is not open", host, address);
+                    clients.remove(address);
+                    sendDataFuture(address, send_packet).thenAccept(result::complete);
+                }
+                client.send(str);
+                info("[{}->{}] Sent data: {}", host, address, trim(str));
+            }
+        });
+        return result;
     }
 
     @Override
