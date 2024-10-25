@@ -138,7 +138,11 @@ public class TCPServer extends AbstractSocketServer {
         var str = send_packet.toString();
         info("[{}->{}] Sending data: {}", host, address, trim(str));
         CompletableFuture<Boolean> future = new CompletableFuture<>();
-        WebSocket client = clients.computeIfAbsent(address, a -> {
+        WebSocket client = clients.compute(address, (a, c) -> {
+            if(c != null) {
+                future.complete(true);
+                return c;
+            }
             URI uri = null;
             try {
                 uri = new URI("ws://" + address.toString().replace("/",""));
