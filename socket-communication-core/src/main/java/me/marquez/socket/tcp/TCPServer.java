@@ -204,8 +204,10 @@ public class TCPServer extends AbstractSocketServer {
                     info("[{}->{}] Connection is not open", host, address);
                     clients.remove(address);
                     sendDataFuture(address, send_packet).thenAccept(result::complete);
+                    return;
                 }
                 client.send(str);
+                result.complete(true);
                 info("[{}->{}] Sent data: {}", host, address, trim(str));
             }
         });
